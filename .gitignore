@@ -1,0 +1,12 @@
+# Built Wasm artifacts (produced by each guest's build.sh).
+*.wasm
+
+# Go
+# (go.mod and go.sum are tracked; build output is not.)
+
+# Rust
+target/
+
+# TypeScript
+node_modules/
+dist/

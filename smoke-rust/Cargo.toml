@@ -1,0 +1,13 @@
+[package]
+name = "smoke-rust"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+[dependencies]
+aggrega-pdk-rust = { path = "../../aggrega-pdk/rust" }
+extism-pdk = "1.4"

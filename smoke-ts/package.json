@@ -1,0 +1,18 @@
+{
+  "name": "smoke-ts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A minimal cli smoke plugin for the Aggrega Wasm runtime, built via extism-js.",
+  "license": "Apache-2.0",
+  "scripts": {
+    "bundle": "esbuild src/index.ts --bundle --format=cjs --target=es2022 --platform=neutral --main-fields=main --outfile=dist/plugin.js"
+  },
+  "dependencies": {
+    "@aggrega-ai/aggrega-pdk-typescript": "file:../../aggrega-pdk/typescript"
+  },
+  "devDependencies": {
+    "@extism/js-pdk": "1.1.1",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.6.0"
+  }
+}
