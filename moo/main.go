@@ -6,9 +6,10 @@
 // It contributes one runtime subcommand — "moo" — that prints a friendly
 // cowsay-style cow to standard output and exits with code zero. It is the
 // showcase shape of a CLI plugin: a describe() self-report declaring
-// plugin_type "cli", the command name "moo", a short description, and the
-// cli_run export, plus a cli_run body that streams the cow through the stdout
-// streaming host function in a single write.
+// plugin_type "cli", a one-element commands list carrying the command name
+// "moo" and a short description, and the cli_run export, plus a cli_run body
+// that streams the cow through the stdout streaming host function in a single
+// write.
 //
 // The plugin declares no capability beyond the CLI baseline — it takes no
 // input, streams output, and returns an exit code — so installing it asks for
@@ -24,11 +25,11 @@ import (
 )
 
 // pluginDescriptor is the static describe() self-report: a v1alpha1 cli plugin
-// contributing the "moo" command. The command token is the name the host
-// installs the subcommand under; the description is its short help. The cli_run
-// export declares the stdout streaming host function it imports, which the host
-// grants under the runtime CLI profile.
-const pluginDescriptor = `{"abi_version":"v1alpha1","plugin_type":"cli","command":"moo","description":"Print a friendly cow.","exports":[{"name":"cli_run","host_functions":["aggrega_cli_write_stdout"]}],"metadata":{"author":"aggrega","license":"Apache-2.0"}}`
+// contributing a single command, "moo". Each entry in the commands list carries
+// a name — the token the host installs the subcommand under — and a
+// description, its short help. The cli_run export declares the stdout streaming
+// host function it imports, which the host grants under the runtime CLI profile.
+const pluginDescriptor = `{"abi_version":"v1alpha1","plugin_type":"cli","commands":[{"name":"moo","description":"Print a friendly cow."}],"exports":[{"name":"cli_run","host_functions":["aggrega_cli_write_stdout"]}],"metadata":{"author":"aggrega","license":"Apache-2.0"}}`
 
 // cow is the full frame streamed in one write: a speech bubble carrying the
 // message above the classic cow art.
