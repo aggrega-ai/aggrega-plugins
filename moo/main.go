@@ -43,6 +43,25 @@ const cow = ` _______________________
                 ||     ||
 `
 
+// alien is the full frame streamed in one write when the caller passes
+// --alien: a UFO tractor-beaming the classic cow, closed by an overline
+// ground bar.
+const alien = `            .-------.
+         _-'         '-_
+        /_______________\
+        \_______________/
+        / | | | | | | | \
+       /  | | | | | | |  \
+      /   | | | | | | |   \
+     /                     \
+    /     ^__^              \
+   /     (@@)\_______        \
+  /      (__)\  )\/\/*        \
+ /           ||----w |         \
+/            ||     ||          \
+‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+`
+
 //go:wasmexport describe
 func describe() int32 {
 	pdk.Output([]byte(pluginDescriptor))
@@ -51,6 +70,17 @@ func describe() int32 {
 
 //go:wasmexport cli_run
 func cli_run() int32 {
+	args, err := aggrega.CLIArgs()
+	if err != nil {
+		pdk.SetError(err)
+		return 1
+	}
+	for _, a := range args {
+		if a == "--alien" {
+			aggrega.WriteStdout([]byte(alien))
+			return 0
+		}
+	}
 	aggrega.WriteStdout([]byte(cow))
 	return 0
 }
