@@ -2,10 +2,9 @@ apiVersion: aggrega.ai/v1alpha1
 kind: Plugin
 metadata:
   name: smoke-ts
+  pluginType: cli
   version: 0.1.0
   description: Report the argument vector from a TypeScript cli plugin.
   license: Apache-2.0
 spec:
-  plugin: oci://hub.aggrega.ai/plugins/smoke-ts
-  pluginType: cli
   abiVersion: v1alpha1

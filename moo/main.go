@@ -29,7 +29,7 @@ import (
 // a name — the token the host installs the subcommand under — and a
 // description, its short help. The cli_run export declares the stdout streaming
 // host function it imports, which the host grants under the runtime CLI profile.
-const pluginDescriptor = `{"abi_version":"v1alpha1","plugin_type":"cli","commands":[{"name":"moo","description":"Print a friendly cow."}],"exports":[{"name":"cli_run","host_functions":["aggrega_cli_write_stdout"]}],"metadata":{"author":"aggrega","license":"Apache-2.0"}}`
+const pluginDescriptor = `{"abi_version":"v1alpha1","plugin_type":"cli","commands":[{"name":"moo","description":"This Aggrega has Super Cow Powers. Pass --alien for a UFO abduction scene."}],"exports":[{"name":"cli_run","host_functions":["aggrega_cli_write_stdout"]}],"metadata":{"author":"aggrega","license":"Apache-2.0"}}`
 
 // cow is the full frame streamed in one write: a speech bubble carrying the
 // message above the classic cow art.
@@ -53,7 +53,7 @@ const alien = `            .-------.
         / | | | | | | | \
        /  | | | | | | |  \
       /   | | | | | | |   \
-     /                     \
+     /   Moooo!            \
     /     ^__^              \
    /     (@@)\_______        \
   /      (__)\  )\/\/*        \

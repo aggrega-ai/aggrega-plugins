@@ -1,16 +1,16 @@
 apiVersion: aggrega.ai/v1alpha1
 kind: Plugin
 metadata:
-  name: cli/moo
-  version: 0.2.1
-  description: Print a friendly cow.
+  name: moo
+  pluginType: cli
+  version: 0.2.2
+  description: This Aggrega has Super Cow Powers.
   license: Apache-2.0
 spec:
-  pluginType: cli
   abiVersion: v1alpha1
   runtime:
     hostFunctions:
       - aggrega_cli_write_stdout
   commands:
     - name: moo
-      description: Print a friendly cow.
+      description: This Aggrega has Super Cow Powers. Pass --alien for a UFO abduction scene.
