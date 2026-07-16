@@ -47,7 +47,7 @@ const cow = ` _______________________
 // --alien: a UFO tractor-beaming the classic cow, closed by an overline
 // ground bar.
 const alien = `            .-------.
-         _-'         '-_
+         _-' O O O O '-_
         /_______________\
         \_______________/
         / | | | | | | | \

@@ -1,12 +1,11 @@
 apiVersion: aggrega.ai/v1alpha1
 kind: Plugin
 metadata:
-  name: moo
-  version: 0.2.0
+  name: cli/moo
+  version: 0.2.1
   description: Print a friendly cow.
   license: Apache-2.0
 spec:
-  plugin: oci://hub.aggrega.ai/plugins/moo
   pluginType: cli
   abiVersion: v1alpha1
   runtime:
