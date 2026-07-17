@@ -8,9 +8,16 @@ metadata:
   license: Apache-2.0
 spec:
   abiVersion: v1alpha1
+  exports:
+    - name: cli_run
   runtime:
     hostFunctions:
       - aggrega_cli_write_stdout
   commands:
     - name: moo
-      description: This Aggrega has Super Cow Powers. Pass --alien for a UFO abduction scene.
+      description: This Aggrega has Super Cow Powers.
+      flags:
+        - name: alien
+          description: Print a UFO abduction scene instead of the cow.
+          type: bool
+          default: "false"

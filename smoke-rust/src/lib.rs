@@ -9,10 +9,15 @@
 //! plugin_type `cli`, a one-element commands list carrying the command's name
 //! and short description, and the `cli_run` export; a `cli_run` body that reads
 //! its arguments through `cli_args` and streams a line through `write_stdout`.
+//! The descriptor is built with typed PDK values and encoded through
+//! `aggrega_pdk_rust::encode_descriptor` rather than hand-written JSON.
 //!
 //! Build: `cargo build --release --target wasm32-wasip1`
 
-use aggrega_pdk_rust::{cli_args, write_stdout};
+use aggrega_pdk_rust::{
+    cli_args, encode_descriptor, write_stdout, PluginCLICommand, PluginDescriptor,
+    PluginDescriptorMeta, PluginExport, API_VERSION,
+};
 use extism_pdk::{plugin_fn, FnResult};
 
 /// The static `describe()` self-report: a v1alpha1 `cli` plugin contributing a
@@ -20,13 +25,34 @@ use extism_pdk::{plugin_fn, FnResult};
 /// — the token the host installs the subcommand under — and a description, its
 /// short help. The `cli_run` export declares the stdout streaming host function
 /// it imports, which the host grants under the runtime CLI profile.
-const PLUGIN_DESCRIPTOR: &str = r#"{"abi_version":"v1alpha1","plugin_type":"cli","commands":[{"name":"smoke-rust","description":"Report the argument vector from a Rust cli plugin."}],"exports":[{"name":"cli_run","host_functions":["aggrega_cli_write_stdout"]}],"metadata":{"author":"aggrega","license":"Apache-2.0"}}"#;
+fn descriptor() -> PluginDescriptor {
+    PluginDescriptor {
+        abi_version: API_VERSION.to_string(),
+        plugin_type: "cli".to_string(),
+        exports: vec![PluginExport {
+            name: "cli_run".to_string(),
+            host_functions: vec!["aggrega_cli_write_stdout".to_string()],
+            ..Default::default()
+        }],
+        commands: vec![PluginCLICommand {
+            name: "smoke-rust".to_string(),
+            description: "Report the argument vector from a Rust cli plugin.".to_string(),
+            ..Default::default()
+        }],
+        metadata: Some(Box::new(PluginDescriptorMeta {
+            author: "aggrega".to_string(),
+            license: "Apache-2.0".to_string(),
+            ..Default::default()
+        })),
+        ..Default::default()
+    }
+}
 
 /// The host calls `describe()` once at load to read the plugin's static
 /// self-report before dispatching `cli_run`.
 #[plugin_fn]
 pub fn describe() -> FnResult<String> {
-    Ok(PLUGIN_DESCRIPTOR.to_string())
+    Ok(encode_descriptor(&descriptor()))
 }
 
 /// `cli_run` reads the invocation's argument vector, reports how many arguments

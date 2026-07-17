@@ -8,3 +8,11 @@ metadata:
   license: Apache-2.0
 spec:
   abiVersion: v1alpha1
+  exports:
+    - name: cli_run
+  runtime:
+    hostFunctions:
+      - aggrega_cli_write_stdout
+  commands:
+    - name: smoke-rust
+      description: Report the argument vector from a Rust cli plugin.

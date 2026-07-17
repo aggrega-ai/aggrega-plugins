@@ -16,20 +16,42 @@
  * returns zero.
  */
 
-import { cliArgs, writeStdout } from "@aggrega-ai/aggrega-pdk-typescript";
+import {
+  API_VERSION,
+  cliArgs,
+  encodeDescriptor,
+  type PluginDescriptor,
+  writeStdout,
+} from "@aggrega-ai/aggrega-pdk-typescript";
 
 // The static describe() self-report: a v1alpha1 cli plugin contributing a
 // single command, "smoke-ts". Each entry in the commands list carries a name —
 // the token the host installs the subcommand under — and a description, its
 // short help. The cli_run export declares the stdout streaming host function it
-// imports, which the host grants under the runtime CLI profile.
-const PLUGIN_DESCRIPTOR =
-  '{"abi_version":"v1alpha1","plugin_type":"cli","commands":[{"name":"smoke-ts","description":"Report the argument vector from a TypeScript cli plugin."}],"exports":[{"name":"cli_run","host_functions":["aggrega_cli_write_stdout"]}],"metadata":{"author":"aggrega","license":"Apache-2.0"}}';
+// imports, which the host grants under the runtime CLI profile. The descriptor
+// is built with typed PDK values and encoded through encodeDescriptor rather
+// than hand-written JSON.
+function descriptor(): PluginDescriptor {
+  return {
+    abi_version: API_VERSION,
+    plugin_type: "cli",
+    exports: [
+      { name: "cli_run", host_functions: ["aggrega_cli_write_stdout"] },
+    ],
+    commands: [
+      {
+        name: "smoke-ts",
+        description: "Report the argument vector from a TypeScript cli plugin.",
+      },
+    ],
+    metadata: { author: "aggrega", license: "Apache-2.0" },
+  };
+}
 
 // The host calls describe() once at load to read the plugin's static
 // self-report before dispatching cli_run.
 function describe(): void {
-  Host.outputString(PLUGIN_DESCRIPTOR);
+  Host.outputString(encodeDescriptor(descriptor()));
 }
 
 function cli_run(): number {
