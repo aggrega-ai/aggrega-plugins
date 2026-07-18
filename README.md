@@ -32,50 +32,82 @@ Every guest is two exports:
   returns an exit code. A zero code is success; a non-zero code reaches the
   shell as the command's status.
 
-Each guest ships a `plugin.yaml` — the `Plugin` entity that names the plugin,
-its version, and the artifact reference the CLI resolves. The entity's
-identity is its reference plus its version; the resolved content digest lives
-in the lockfile, not in the entity.
+Each guest ships a `plugin.yaml` — the `Plugin` entity that names the plugin
+and its version and declares its ABI version, exports, the host functions it
+may call, and the commands it contributes. The entity's identity is its name
+and its version; the `.wasm` artifact and the content digest of its verified
+bytes are bound at publish time, not written into the entity by hand.
 
-## Author, build, install, run
+## Author, build, publish, run
 
-Build a guest to a `.wasm` artifact with its `build.sh`, then install and run
-it. Each build script writes the artifact next to its source by default; set
-`AGGREGA_PLUGIN_WASM_OUT` to write it elsewhere (for example a sidecar
-directory).
+A plugin travels from source to a working `aggrega <command>` in two hands: an
+author builds and publishes the guest to a registry, and a user adds it from
+that registry by name. There is no local-path install — a plugin is always
+resolved from a registry, or, for the built-ins, from the binary itself.
+
+### Author and publish
+
+Build a guest to a `.wasm` artifact with its `build.sh`. Each build script
+writes the artifact next to its source by default; set `AGGREGA_PLUGIN_WASM_OUT`
+to write it elsewhere.
 
 ```sh
 # 1. Build the guest to a .wasm artifact.
-./moo/build.sh                      # writes moo/moo.wasm
+./moo/build.sh                                   # writes moo/moo.wasm
 
-# 2. Install it as a top-level command. The install prints the plugin's
-#    declared capabilities and asks for confirmation; pass --yes for a
-#    non-interactive run.
-aggrega plugin install ./moo/moo.wasm --yes
+# 2. Align the entity's machine-owned records — the host functions it may call
+#    and the commands it contributes — with the freshly built bytes.
+aggrega plugin sync moo/plugin.yaml --plugin moo/moo.wasm
 
-# 3. Run it.
-aggrega moo
+# 3. Publish the entity and its artifact to the registry. Publishing signs the
+#    artifact and records the content digest of its verified bytes; it first
+#    checks the entity's synced records against the .wasm and refuses a file
+#    whose records have drifted from its binary.
+aggrega push moo/plugin.yaml --plugin moo/moo.wasm
 ```
 
-`aggrega plugin install` resolves the reference, loads the guest to read its
-`describe()` self-report, confirms the plugin's capabilities, and registers
-the command it contributes. A reference is resolved through the plugin
-cascade: an embedded built-in, a sidecar directory, an explicit local path,
-the content cache, or a registry. A local path (`./moo/moo.wasm`) resolves
-with no network and no registry — the shortest path from a freshly built
-guest to a working command.
+When you are starting an entity from the binary rather than editing one by hand,
+`aggrega plugin gen-catalog` generates a `Plugin` entity from a guest's
+`describe()` self-report plus an authored overlay.
 
-The smoke guests follow the same shape:
+### Add and run
+
+A user adds a published cli plugin by name. `aggrega plugin add cli <name>`
+searches the configured registry, resolves the query to one plugin, fetches and
+verifies its bytes, caches them, and pins the command into the plugin list as a
+top-level `aggrega <name>`. The pin records the resolved reference and the
+content digest, so later runs execute those exact bytes from the local cache
+with no further network access. The plugin's declared capabilities are shown for
+confirmation before it is added; `--yes` skips that prompt for a non-interactive
+run.
 
 ```sh
-./smoke-rust/build.sh               # cargo build --release --target wasm32-wasip1
-aggrega plugin install ./smoke-rust/smoke-rust.wasm --yes
-aggrega smoke-rust alpha beta       # -> smoke-rust: 2 arg(s): [alpha beta]
+# Add the published plugin as a top-level command, then run it.
+aggrega plugin add cli moo
+aggrega moo                                      # prints the cow
+aggrega moo --alien                              # prints the UFO abduction scene
+```
 
-./smoke-ts/build.sh                 # extism-js compile of the bundled TypeScript
-aggrega plugin install ./smoke-ts/smoke-ts.wasm --yes
-aggrega smoke-ts hello world        # exit 0
-aggrega smoke-ts fail now           # exit 7 — a non-zero status reaches the shell
+`aggrega plugin list` shows every plugin the CLI can resolve — the embedded
+built-ins and the configured commands — each with its `describe()` metadata and
+readiness. `aggrega plugin remove cli moo` removes the command again, symmetric
+with `add`.
+
+The smoke guests follow the same shape — build, sync, publish, then add and run:
+
+```sh
+./smoke-rust/build.sh                            # cargo build --release --target wasm32-wasip1
+aggrega plugin sync smoke-rust/plugin.yaml --plugin smoke-rust/smoke-rust.wasm
+aggrega push smoke-rust/plugin.yaml --plugin smoke-rust/smoke-rust.wasm
+aggrega plugin add cli smoke-rust
+aggrega smoke-rust alpha beta                    # -> smoke-rust: 2 arg(s): [alpha beta]
+
+./smoke-ts/build.sh                              # extism-js compile of the bundled TypeScript
+aggrega plugin sync smoke-ts/plugin.yaml --plugin smoke-ts/smoke-ts.wasm
+aggrega push smoke-ts/plugin.yaml --plugin smoke-ts/smoke-ts.wasm
+aggrega plugin add cli smoke-ts
+aggrega smoke-ts hello world                     # exit 0
+aggrega smoke-ts fail now                        # exit 7 — a non-zero status reaches the shell
 ```
 
 ## Build prerequisites
