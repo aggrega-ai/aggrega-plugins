@@ -8,11 +8,16 @@ metadata:
     Write runtime controls into an AI gateway's rendered configuration. The
     gateway's realization emits its configuration as a text block inside a
     ConfigMap, and the proxy reads that file through its --config flag; this step
-    selects that entry by the routing table it carries, sets the settings its
-    feature-recipe step asked for in the section it named, and replaces the
-    entry. Every line the settings do not touch is carried through unchanged, so
-    the routing table keeps its authored order and formatting. Compatible with
-    the helm provider, whose Workload synthesis emits the documents it patches.
+    selects that entry by the routing table it carries, writes what its
+    feature-recipe step asked for into the section it named, and replaces the
+    entry. A section of named settings is written with settings; a section that
+    is a list is written with entries, and identifiedBy names the key inside an
+    entry that identifies it, so an entry the section already carries is replaced
+    rather than duplicated whatever position it sits at. Asking for the shape a
+    section does not hold is refused rather than written. Every line the request
+    does not touch is carried through unchanged, so the routing table keeps its
+    authored order and formatting. Compatible with the helm provider, whose
+    Workload synthesis emits the documents it patches.
   license: Apache-2.0
 spec:
   abiVersion: v1alpha1
