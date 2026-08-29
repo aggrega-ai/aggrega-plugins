@@ -157,8 +157,9 @@ aggrega push litellm-gateway-config/plugin.yaml \
 ```
 
 **Publish the bytes before the entity.** Between an entity being published and
-its artifact following, an attachment naming that entity resolves nothing — and
-what it loses is the check the step exists to perform.
+its artifact following, a build that reaches the step halts and names the plugin
+it could not resolve. Publishing in this order keeps a deployment from meeting a
+refusal it has no way to clear from its own side.
 
 ## Build prerequisites
 
