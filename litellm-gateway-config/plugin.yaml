@@ -1,0 +1,30 @@
+apiVersion: aggrega.ai/v1alpha1
+kind: Plugin
+metadata:
+  name: litellm-gateway-config
+  pluginType: pipeline-step
+  version: 1.0.0
+  description: >
+    Write runtime controls into an AI gateway's rendered configuration. The
+    gateway's realization emits its configuration as a text block inside a
+    ConfigMap, and the proxy reads that file through its --config flag; this step
+    selects that entry by the routing table it carries, sets the settings its
+    feature-recipe step asked for in the section it named, and replaces the
+    entry. Every line the settings do not touch is carried through unchanged, so
+    the routing table keeps its authored order and formatting. Compatible with
+    the helm provider, whose Workload synthesis emits the documents it patches.
+  license: Apache-2.0
+spec:
+  abiVersion: v1alpha1
+  runtime:
+    maxMemoryPages: 4096
+    timeoutMs: 300000
+    hostFunctions: []
+  exports:
+    - name: step
+      operates: patch
+      scope: host
+  pipelineStep:
+    capabilities:
+      - helm
+  commands: []

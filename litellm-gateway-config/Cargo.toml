@@ -1,0 +1,15 @@
+[package]
+name = "litellm-gateway-config"
+version = "1.0.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+[dependencies]
+aggrega-pdk-rust = { path = "../../aggrega-pdk/rust" }
+extism-pdk = "1.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
