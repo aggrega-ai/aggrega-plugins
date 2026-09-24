@@ -58,9 +58,7 @@
 //! Entries are applied in the order the step declared them, because a list's
 //! order is part of what the list means.
 
-use aggrega_pdk_rust::{
-    encode_descriptor, PluginDescriptor, PluginDescriptorMeta, PluginExport, API_VERSION,
-};
+use aggrega_pdk_rust::{PluginDescriptor, PluginDescriptorMeta, PluginExport, API_VERSION};
 use extism_pdk::{plugin_fn, FnResult};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -175,10 +173,12 @@ struct StepOutput {
 }
 
 /// The host calls `describe()` once at load to read the plugin's
-/// self-declaration before dispatching `step`.
+/// self-declaration before dispatching `step`. The kit's `describe!` macro
+/// expands here, in this crate, so the version and commit the build script
+/// stamps at compile time reach the self-report.
 #[plugin_fn]
 pub fn describe() -> FnResult<String> {
-    Ok(encode_descriptor(&descriptor()))
+    Ok(aggrega_pdk_rust::describe!(descriptor()))
 }
 
 /// `step` runs one cross-entity pipeline step: it content-selects the attached

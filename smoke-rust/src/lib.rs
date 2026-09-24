@@ -9,14 +9,16 @@
 //! plugin_type `cli`, a one-element commands list carrying the command's name
 //! and short description, and the `cli_run` export; a `cli_run` body that reads
 //! its arguments through `cli_args` and streams a line through `write_stdout`.
-//! The descriptor is built with typed PDK values and encoded through
-//! `aggrega_pdk_rust::encode_descriptor` rather than hand-written JSON.
+//! The descriptor is built with typed PDK values and encoded through the kit's
+//! `aggrega_pdk_rust::describe!` macro rather than hand-written JSON, which
+//! also folds in the version and commit the build stamps.
 //!
-//! Build: `cargo build --release --target wasm32-wasip1`
+//! Build: `./build.sh`, which stamps the version and commit and runs
+//! `cargo build --release --target wasm32-wasip1`.
 
 use aggrega_pdk_rust::{
-    cli_args, encode_descriptor, write_stdout, PluginCLICommand, PluginDescriptor,
-    PluginDescriptorMeta, PluginExport, API_VERSION,
+    cli_args, write_stdout, PluginCLICommand, PluginDescriptor, PluginDescriptorMeta,
+    PluginExport, API_VERSION,
 };
 use extism_pdk::{plugin_fn, FnResult};
 
@@ -49,10 +51,12 @@ fn descriptor() -> PluginDescriptor {
 }
 
 /// The host calls `describe()` once at load to read the plugin's static
-/// self-report before dispatching `cli_run`.
+/// self-report before dispatching `cli_run`. The kit's `describe!` macro
+/// expands here, in this crate, so the version and commit the build script
+/// stamps at compile time reach the self-report.
 #[plugin_fn]
 pub fn describe() -> FnResult<String> {
-    Ok(encode_descriptor(&descriptor()))
+    Ok(aggrega_pdk_rust::describe!(descriptor()))
 }
 
 /// `cli_run` reads the invocation's argument vector, reports how many arguments

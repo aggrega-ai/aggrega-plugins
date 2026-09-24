@@ -16,7 +16,8 @@
 // input, streams output, and returns an exit code — so installing it asks for
 // no additional grants.
 //
-// Build: GOOS=wasip1 GOARCH=wasm go build -buildmode=c-shared -o moo.wasm ./
+// Build: ./build.sh, which stamps the version and commit through the linker
+// and runs GOOS=wasip1 GOARCH=wasm go build -buildmode=c-shared -o moo.wasm ./
 package main
 
 import (

@@ -8,9 +8,11 @@ rendered documents, and any other socket a guest targets. The compiler is blind
 to what a plugin does; the WebAssembly runtime executes its bytes and moves the
 socket's payload in and its result out.
 
-Each guest is a self-contained directory holding its source, a `build.sh` that
-compiles it to a `.wasm` artifact, and the `Plugin` entity that describes it.
-Built artifacts are not committed — `build.sh` writes one beside its source.
+Each guest is a directory holding its source, a `build.sh` that compiles it to
+a `.wasm` artifact, and the `Plugin` entity that describes it. The one file the
+guests share is `lib/build-version.sh`, the recipe every `build.sh` sources for
+the version and commit it stamps into the guest. Built artifacts are not
+committed — `build.sh` writes one beside its source.
 
 ## Plugins in this repository
 
@@ -82,24 +84,83 @@ Build a guest to a `.wasm` artifact with its `build.sh`. Each build script
 writes the artifact next to its source by default; set `AGGREGA_PLUGIN_WASM_OUT`
 to write it elsewhere.
 
-```sh
-# 1. Build the guest to a .wasm artifact.
-./moo/build.sh                                   # writes moo/moo.wasm
+#### Where a guest's version comes from
 
-# 2. Align the entity's machine-owned records — the host functions it may call
-#    and the commands it contributes — with the freshly built bytes.
+A guest's version is a git tag in this repository named after the guest's
+directory: `<guest>/v<semver>`, for example `moo/v0.2.3` or
+`litellm-gateway-config/v1.0.0`. Every `build.sh` sources `lib/build-version.sh`,
+which describes the commit being built against that guest's tags only, strips
+the `<guest>/v` prefix, and stamps the result into the guest's `describe()`
+self-report together with the repository's short commit. Each build prints the
+version and commit it stamped. Each kit folds the stamp in its own way: the
+Rust guests' builds pass it to `cargo build` for the kit's `describe!` macro,
+the TypeScript guest's build defines it in the bundle for the kit's
+`encodeDescriptor`, and the Go guest's build sets it through the linker for the
+kit's `MarshalDescriptor`.
+
+The tag is the version's source. The `version` in a guest's `Cargo.toml` or
+`package.json` is not read by the stamp, and the entity's `metadata.version` is
+held to the stamp when the guest is published.
+
+| The tree being built                                  | Stamped version                 |
+| ----------------------------------------------------- | ------------------------------- |
+| the commit the guest's tag names, with no local edits | `0.2.3`                         |
+| three commits past that tag                           | `0.2.3-3-g1a2b3c4`              |
+| a commit no tag of the guest precedes                 | the short commit, `1a2b3c4`     |
+| any of these, with uncommitted edits                  | the same, ending in `-dirty`    |
+
+A tag names a commit of the whole repository, never a directory. A commit that
+changes only another guest still moves this guest off its tag: after a commit
+touching only `smoke-rust`, building `moo` stamps a development version such as
+`0.2.3-1-g1a2b3c4` until `moo` is tagged again. To rebuild a version that is
+already published, build from the commit its tag names.
+
+#### What publishing checks
+
+`aggrega push` reads `describe()` from the `.wasm` it is given and refuses the
+entity when its records disagree with that binary: `metadata.pluginType` must be
+the type the guest reports, each export the entity claims must be one the guest
+declares, with the same `operates` and `scope`, `metadata.version` must equal the
+version the guest stamped, and the synced host functions and commands must equal
+what the guest imports and declares. A build from an untagged commit, from
+a commit past the tag, or from an edited tree stamps a development version, and
+publishing refuses it against the release version the entity records. That
+refusal is cleared by tagging the commit and rebuilding from it, not by writing
+the development version into the entity: a published version names a tagged
+build.
+
+#### Publishing a release
+
+The steps run in this order, because the tag has to name the commit that
+carries the entity it releases:
+
+```sh
+# 1. Set the release version in the entity's metadata.version, build, and align
+#    the entity's machine-owned records — the host functions it may call and
+#    the commands it contributes — with the freshly built bytes.
+./moo/build.sh                                   # writes moo/moo.wasm
 aggrega plugin sync moo/plugin.yaml --plugin moo/moo.wasm
 
-# 3. Publish the entity and its artifact to the registry. Publishing signs the
+# 2. Commit the synced entity and the source, then tag that commit with the
+#    version the entity records.
+git tag moo/v0.2.3
+
+# 3. Rebuild on the clean, tagged commit, so the guest stamps the release
+#    version.
+./moo/build.sh                                   # Stamping version 0.2.3, commit <sha>
+
+# 4. Publish the entity and its artifact to the registry. Publishing signs the
 #    artifact and records the content digest of its verified bytes; it first
-#    checks the entity's synced records against the .wasm and refuses a file
-#    whose records have drifted from its binary.
+#    checks the entity's version and synced records against the .wasm and
+#    refuses a file that has drifted from its binary.
 aggrega push moo/plugin.yaml --plugin moo/moo.wasm
 ```
 
 When you are starting an entity from the binary rather than editing one by hand,
 `aggrega plugin gen-catalog` generates a `Plugin` entity from a guest's
-`describe()` self-report plus an authored overlay.
+`describe()` self-report plus an authored overlay. The generated entity carries
+the version that build stamped, so one generated from a development build has
+its release version set in the first step above.
 
 ### Add and run
 
@@ -124,24 +185,29 @@ built-ins and the configured commands — each with its `describe()` metadata an
 readiness. `aggrega plugin remove cli moo` removes the command again, symmetric
 with `add`.
 
-The smoke guests follow the same shape — build, sync, publish, then add and run:
+The smoke guests follow the same shape — build, sync, commit and tag, rebuild
+on the tagged commit, publish, then add and run:
 
 ```sh
 ./smoke-rust/build.sh                            # cargo build --release --target wasm32-wasip1
 aggrega plugin sync smoke-rust/plugin.yaml --plugin smoke-rust/smoke-rust.wasm
+git tag smoke-rust/v0.1.0                        # on the commit carrying the synced entity
+./smoke-rust/build.sh                            # Stamping version 0.1.0, commit <sha>
 aggrega push smoke-rust/plugin.yaml --plugin smoke-rust/smoke-rust.wasm
 aggrega plugin add cli smoke-rust
 aggrega smoke-rust alpha beta                    # -> smoke-rust: 2 arg(s): [alpha beta]
 
 ./smoke-ts/build.sh                              # extism-js compile of the bundled TypeScript
 aggrega plugin sync smoke-ts/plugin.yaml --plugin smoke-ts/smoke-ts.wasm
+git tag smoke-ts/v0.1.0                          # on the commit carrying the synced entity
+./smoke-ts/build.sh                              # Stamping version 0.1.0, commit <sha>
 aggrega push smoke-ts/plugin.yaml --plugin smoke-ts/smoke-ts.wasm
 aggrega plugin add cli smoke-ts
 aggrega smoke-ts hello world                     # exit 0
 aggrega smoke-ts fail now                        # exit 7 — a non-zero status reaches the shell
 ```
 
-### A pipeline-step guest: build, sync, publish
+### A pipeline-step guest: build, sync, tag, publish
 
 A `pipeline-step` guest is built and published the same way, and there is no
 `add` step: nothing installs it as a command. A `FeatureRecipe` names it by its
@@ -152,6 +218,8 @@ to its artifact when an attachment reaches the step.
 ./litellm-gateway-config/build.sh
 aggrega plugin sync litellm-gateway-config/plugin.yaml \
   --plugin litellm-gateway-config/litellm-gateway-config.wasm
+git tag litellm-gateway-config/v1.0.0            # on the commit carrying the synced entity
+./litellm-gateway-config/build.sh                # Stamping version 1.0.0, commit <sha>
 aggrega push litellm-gateway-config/plugin.yaml \
   --plugin litellm-gateway-config/litellm-gateway-config.wasm
 ```
@@ -163,6 +231,9 @@ refusal it has no way to clear from its own side.
 
 ## Build prerequisites
 
+- Every guest: `git`, and a clone of this repository that carries its tags,
+  since the version is read from them. Outside a git checkout a build stamps
+  the version `dev` and the commit `unknown`, which no release carries.
 - `moo` (Go): a Go toolchain with the `wasip1`/`wasm` target.
 - `smoke-rust` (Rust): a Rust toolchain with the `wasm32-wasip1` target
   (`rustup target add wasm32-wasip1`).

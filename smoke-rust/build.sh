@@ -5,6 +5,12 @@
 # The destination directory defaults to this script's own directory; set
 # AGGREGA_PLUGIN_WASM_OUT to write the artifact elsewhere (for example a
 # sidecar directory or a staging area a walk-through drives).
+#
+# The guest's describe() reports the version and commit of the tree it was
+# built from, read by ../lib/build-version.sh from this guest's
+# smoke-rust/v<semver> tag. The kit's describe! macro reads them at compile
+# time from AGGREGA_VERSION and AGGREGA_COMMIT, and cargo rebuilds the crate
+# when either value changes.
 
 set -eo pipefail
 
@@ -12,6 +18,12 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 OUT_DIR="${AGGREGA_PLUGIN_WASM_OUT:-${SCRIPT_DIR}}"
 mkdir -p "${OUT_DIR}"
 
-(cd "${SCRIPT_DIR}" && cargo build --release --target wasm32-wasip1)
+# shellcheck source=SCRIPTDIR/../lib/build-version.sh
+source "${SCRIPT_DIR}/../lib/build-version.sh"
+plugin_build_stamp
+echo "Stamping version ${BUILD_VERSION}, commit ${BUILD_COMMIT}"
+
+(cd "${SCRIPT_DIR}" && AGGREGA_VERSION="${BUILD_VERSION}" AGGREGA_COMMIT="${BUILD_COMMIT}" \
+    cargo build --release --target wasm32-wasip1)
 cp "${SCRIPT_DIR}/target/wasm32-wasip1/release/smoke_rust.wasm" "${OUT_DIR}/smoke-rust.wasm"
 echo "Wrote ${OUT_DIR}/smoke-rust.wasm"

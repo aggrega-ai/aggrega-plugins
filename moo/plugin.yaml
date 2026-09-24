@@ -18,6 +18,6 @@ spec:
       description: This Aggrega has Super Cow Powers.
       flags:
         - name: alien
-          description: Print a UFO cow abduction scene.
+          description: Print a UFO abduction scene instead of the cow.
           type: bool
           default: "false"
