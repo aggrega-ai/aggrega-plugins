@@ -1,9 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 Cognitio S.r.l.
+
 apiVersion: aggrega.ai/v1alpha1
 kind: Plugin
 metadata:
   name: litellm-gateway-config
   pluginType: pipeline-step
   version: 1.0.0
+  license: Apache-2.0
   description: >
     Write runtime controls into an AI gateway's rendered configuration. The
     gateway's realization emits its configuration as a text block inside a
@@ -17,8 +21,12 @@ metadata:
     section does not hold is refused rather than written. Every line the request
     does not touch is carried through unchanged, so the routing table keeps its
     authored order and formatting. Compatible with the helm provider, whose
-    Workload synthesis emits the documents it patches.
-  license: Apache-2.0
+    Workload synthesis emits the documents it patches. It ships in neither the
+    compiler nor a catalog, so it is reached through a registry. For a Release
+    whose build includes a Feature realized through this step, `aggrega pull`
+    fetches this entity and its compiled `.wasm` from the registry named by the
+    workspace's `default_registry` setting, which must be reachable when it does,
+    and records the content digest of each in the Release's lockfile.
 spec:
   abiVersion: v1alpha1
   runtime:
