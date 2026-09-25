@@ -26,7 +26,11 @@ metadata:
     whose build includes a Feature realized through this step, `aggrega pull`
     fetches this entity and its compiled `.wasm` from the registry named by the
     workspace's `default_registry` setting, which must be reachable when it does,
-    and records the content digest of each in the Release's lockfile.
+    and records the content digest of each in the Release's lockfile. A later
+    `aggrega build` that does not pull again first (no `--auto-pull`, no
+    `auto_pull` workspace setting) reads both from the cache the pull filled,
+    without contacting the registry, and halts if either no longer matches the
+    digest recorded for it.
 spec:
   abiVersion: v1alpha1
   runtime:
