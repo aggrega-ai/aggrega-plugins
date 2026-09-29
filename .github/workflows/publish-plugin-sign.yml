@@ -1,0 +1,367 @@
+name: Publish and sign a plugin
+
+# Tag-driven publisher for the plugin guests of this repository. A guest's
+# release tag is <guest>/v<MAJOR>.<MINOR>.<PATCH>, named after the guest's
+# directory — litellm-gateway-config/v1.0.0, for example — and names the commit
+# that carries the guest's entity at that version. On such a tag this workflow
+# builds that one guest from the commit the tag names, publishes its .wasm and
+# its Plugin entity to the registry, and signs the publication keyless with the
+# GitHub Actions OIDC identity against the public Sigstore instance (Fulcio +
+# Rekor).
+#
+# Three jobs, in this order:
+#
+#   registry  checks, before anything is built, that the registry accepts the
+#             stored credential (one authenticated GET /v2/), that the tag is a
+#             well-formed release tag of a guest this repository carries, and
+#             that the tooling image the publish job runs inside exists,
+#             waiting a bounded time for it. It runs on a GitHub-hosted runner,
+#             so a wait for the image never holds the runner the CLI's own
+#             publisher needs to publish that image.
+#   build     builds the guest with its own build.sh against the plugin
+#             development kits checked out beside it, checks that the entity's
+#             metadata.version and the version the build stamped both equal the
+#             tag's, and hands the .wasm and the entity to the next job.
+#   publish   runs inside the tooling image and publishes with aggrega push,
+#             which reads describe() from the .wasm and refuses an entity that
+#             disagrees with it before any byte lands.
+#
+# The logic of each step lives in scripts/publish-plugin.sh and
+# .github/scripts/registry-gate.sh, so a run can be repeated by hand exactly;
+# the steps here only pass them what GitHub knows.
+#
+# A manual dispatch defaults to a dry run. A dry run performs the credential
+# check against the registry — so it is also how to prove that the stored
+# credential matches the registry — builds, and prints each publication plan;
+# it publishes and signs nothing. Given a tag it rehearses that tag. Given none
+# it builds every guest that has a release tag, each at its newest one, which
+# is what publishing each guest's current release would build. A real publish
+# always names a tag.
+#
+# For a tag push GitHub runs this file as it stands in the tagged commit, so a
+# tag on a commit that does not carry this file starts nothing; publish such a
+# tag with a manual dispatch naming it.
+#
+# This workflow never creates or pushes a git tag. Deciding the version and
+# cutting the tag is a human action.
+#
+# Settings, by name:
+#   variables  PLUGINS_PUBLISH_REGISTRY  the registry to publish to, as its host
+#              REGISTRY_USERNAME         the registry username
+#              TOOLING_IMAGE_TAG         the tag of the tooling image the publish
+#                                        job runs inside
+#              AGGREGA_RUNNER            the runner label for the build and
+#                                        publish jobs (optional)
+#              PLUGINS_PDK_REF           the aggrega-pdk ref to build against
+#                                        (optional, main by default)
+#              PLUGINS_ABI_REF           the aggrega-abi ref to build against
+#                                        (optional, main by default)
+#   secrets    REGISTRY_PASSWORD         the registry password
+#              SUBMODULE_APP_CLIENT_ID   the organization App that reads the
+#              SUBMODULE_APP_PRIVATE_KEY private kit repositories
+
+on:
+  # A release tag is the trigger and the human gate. The pattern matches
+  # <guest>/vMAJOR.MINOR.PATCH; a pre-release suffix is excluded from automatic
+  # publishing.
+  push:
+    tags:
+      - "*/v[0-9]+.[0-9]+.[0-9]+"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Check the stored registry credential, build, and print each publication plan without publishing or signing."
+        required: false
+        default: true
+        type: boolean
+      tag:
+        description: "The release tag (<guest>/vMAJOR.MINOR.PATCH) to build and publish on a manual run; required for a real manual publish. Empty on a dry run builds every guest at its newest release tag. Ignored on a tag push, which uses the pushed tag."
+        required: false
+        default: ""
+        type: string
+
+# The registry and build jobs read this repository and nothing else. The
+# publish job adds id-token:write, which lets it mint the OIDC token keyless
+# signing needs; no job writes to git.
+permissions:
+  contents: read
+
+env:
+  # Destination registry host. A repository variable the operator sets once;
+  # the placeholder default names a host that never resolves, so an unset
+  # variable fails the credential check, naming the variable.
+  REGISTRY: ${{ vars.PLUGINS_PUBLISH_REGISTRY || 'registry.invalid' }}
+  # The release tag this run builds: the pushed tag, or the dispatch input.
+  # Scripts read it from the environment; it is never interpolated into one.
+  RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
+  # "true" on a manual dry run, "false" otherwise: a tag push is always a real
+  # publish.
+  DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+
+jobs:
+  registry:
+    runs-on: ubuntu-latest
+    # The image wait below gives up after 30 minutes; this bounds the job even
+    # if a request hangs.
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: bash
+    env:
+      # Read by registry-gate.sh from the environment, never placed on a
+      # command line.
+      REGISTRY_USERNAME: ${{ vars.REGISTRY_USERNAME }}
+      REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+    outputs:
+      image: ${{ steps.image.outputs.image }}
+      tags: ${{ steps.resolve.outputs.tags }}
+      rust: ${{ steps.resolve.outputs.rust }}
+      go: ${{ steps.resolve.outputs.go }}
+      node: ${{ steps.resolve.outputs.node }}
+    steps:
+      - name: Check out this repository with its tags
+        # The tags are what the resolve step reads.
+        uses: actions/checkout@v5
+        with:
+          path: aggrega-plugins
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Check the stored registry credential
+        # One GET /v2/ with the stored credential; anything but 200 fails,
+        # naming the settings to check and reporting only the HTTP status. An
+        # empty password or username is refused before any request.
+        run: |
+          aggrega-plugins/.github/scripts/registry-gate.sh credential \
+            --registry-url "https://$REGISTRY" \
+            --registry-setting PLUGINS_PUBLISH_REGISTRY \
+            --username-setting REGISTRY_USERNAME \
+            --password-setting REGISTRY_PASSWORD
+
+      - name: Resolve the release tag to the guests to build
+        # Refuses a malformed tag, one this repository does not carry, and one
+        # whose commit holds no such guest, and a real publish without a tag.
+        # Writes the tags to build and the toolchains they need to the step's
+        # outputs.
+        id: resolve
+        run: |
+          args=(resolve --output "$GITHUB_OUTPUT")
+          if [ -n "$RELEASE_TAG" ]; then
+            args+=(--tag "$RELEASE_TAG")
+          fi
+          if [ "$DRY_RUN" != "true" ]; then
+            args+=(--publish)
+          fi
+          aggrega-plugins/scripts/publish-plugin.sh "${args[@]}"
+
+      - name: Wait for the tooling image
+        # The publish job runs inside hub.aggrega.ai/tools/aggrega, which only
+        # the CLI's release publisher creates. Release tags pushed together
+        # start the publishers within seconds of each other, so on an empty
+        # registry this waits for the image: a check every 30 seconds for at
+        # most 30 minutes, long enough for a CLI publish started at the same
+        # moment, or queued behind one other job on the runner, to reach the
+        # step that pushes the image. A refused credential is not retried. On a
+        # timeout the failure names the missing image and the re-run that
+        # finishes the job once the CLI is published.
+        id: image
+        env:
+          TOOLING_IMAGE_TAG: ${{ vars.TOOLING_IMAGE_TAG }}
+        run: |
+          aggrega-plugins/.github/scripts/registry-gate.sh image \
+            --registry-url https://hub.aggrega.ai \
+            --repository tools/aggrega \
+            --tag "$TOOLING_IMAGE_TAG" \
+            --tag-setting TOOLING_IMAGE_TAG \
+            --username-setting REGISTRY_USERNAME \
+            --password-setting REGISTRY_PASSWORD \
+            --timeout 1800 \
+            --interval 30
+
+  build:
+    needs: registry
+    # Point the AGGREGA_RUNNER repository variable at a self-hosted label to run
+    # the build off hosted minutes.
+    runs-on: ${{ vars.AGGREGA_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    env:
+      TAGS: ${{ needs.registry.outputs.tags }}
+    steps:
+      - name: Mint org app token for the kit repositories
+        # The kit repositories are private; a GitHub App installation token
+        # scoped to the organization grants the checkouts below read access.
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.SUBMODULE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.SUBMODULE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Check out this repository with its tags
+        # Full history and tags: the build clones this checkout, moves the clone
+        # onto each tag, and each guest's build stamps its version from the tags.
+        uses: actions/checkout@v5
+        with:
+          path: aggrega-plugins
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Check out the aggrega-pdk kit
+        # Each guest names the kits by the relative path ../../aggrega-pdk and
+        # ../../aggrega-abi from its own directory, so they sit beside this
+        # repository. No guest pins a kit revision, so the kits are checked out
+        # at PLUGINS_PDK_REF and PLUGINS_ABI_REF; the build prints the commits
+        # it built against.
+        uses: actions/checkout@v5
+        with:
+          repository: aggrega-ai/aggrega-pdk
+          path: aggrega-pdk
+          ref: ${{ vars.PLUGINS_PDK_REF || 'main' }}
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Check out the aggrega-abi kit
+        uses: actions/checkout@v5
+        with:
+          repository: aggrega-ai/aggrega-abi
+          path: aggrega-abi
+          ref: ${{ vars.PLUGINS_ABI_REF || 'main' }}
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Install Rust for the Rust guests
+        # The Rust guests build to wasm32-unknown-unknown and wasm32-wasip1, on
+        # the kits' Rust 1.85 floor.
+        if: ${{ needs.registry.outputs.rust == 'true' }}
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.85'
+          targets: wasm32-unknown-unknown, wasm32-wasip1
+
+      - name: Install Go for the Go guests
+        # The highest Go version a Go guest's go.mod names.
+        if: ${{ needs.registry.outputs.go != '' }}
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ needs.registry.outputs.go }}
+          # Off, as in the CLI's publisher: on a persistent self-hosted runner
+          # the module and build caches are still on disk from the last run.
+          cache: false
+
+      - name: Install Node for the TypeScript guest
+        if: ${{ needs.registry.outputs.node == 'true' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install extism-js and binaryen for the TypeScript guest
+        # Pinned releases, each checked against its SHA-256 before it is
+        # installed.
+        if: ${{ needs.registry.outputs.node == 'true' }}
+        run: |
+          aggrega-plugins/scripts/publish-plugin.sh install-tools --dir "$RUNNER_TEMP/tools/bin"
+          echo "$RUNNER_TEMP/tools/bin" >> "$GITHUB_PATH"
+
+      - name: Build the guests at their release tags
+        # Each guest builds from the commit its tag names, with its own
+        # build.sh. The entity's metadata.version must equal the tag's version
+        # before the build starts, and the version the build stamps must equal
+        # it after.
+        run: |
+          aggrega-plugins/scripts/publish-plugin.sh build \
+            --tags "$TAGS" \
+            --kits "$GITHUB_WORKSPACE" \
+            --work "$RUNNER_TEMP/plugin-build" \
+            --out "$RUNNER_TEMP/plugin-release"
+
+      - name: Hand the built guests to the publish job
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugin-release
+          path: ${{ runner.temp }}/plugin-release
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: [registry, build]
+    runs-on: ${{ vars.AGGREGA_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+
+    # Every run: below opens a bash script; naming the shell keeps a container
+    # from choosing sh for it.
+    defaults:
+      run:
+        shell: bash
+
+    # Run inside the tooling image the registry job found, so aggrega is on
+    # PATH. The registry is authenticated even on pull, so the image is pulled
+    # with the registry credentials.
+    container:
+      image: ${{ needs.registry.outputs.image }}
+      credentials:
+        username: ${{ vars.REGISTRY_USERNAME }}
+        password: ${{ secrets.REGISTRY_PASSWORD }}
+
+    env:
+      # The username feeds aggrega login, which reads the password from
+      # AGGREGA_REGISTRY_PASSWORD. Both come from the environment, never from
+      # an expression inside a script.
+      REGISTRY_USERNAME: ${{ vars.REGISTRY_USERNAME }}
+      AGGREGA_REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+      # Public-good Sigstore endpoints for keyless signing, stated explicitly.
+      FULCIO_URL: https://fulcio.sigstore.dev
+      REKOR_URL: https://rekor.sigstore.dev
+
+    steps:
+      - name: Check out this repository
+        # For the release script only; the guests arrive built.
+        uses: actions/checkout@v5
+        with:
+          path: aggrega-plugins
+
+      - name: Receive the built guests
+        uses: actions/download-artifact@v4
+        with:
+          name: plugin-release
+          path: ${{ runner.temp }}/plugin-release
+
+      - name: Authenticate to the registry
+        # Only a real publish contacts the registry from this job; a dry run's
+        # plan calls no registry.
+        if: ${{ env.DRY_RUN != 'true' }}
+        run: |
+          aggrega login "$REGISTRY" --username "$REGISTRY_USERNAME"
+
+      - name: Mint the Sigstore OIDC identity token
+        # Keyless signing needs a short-lived OIDC identity token. Request one
+        # from the Actions runtime, audience-scoped to sigstore, and export it
+        # as SIGSTORE_ID_TOKEN so aggrega push --sign reads it
+        # non-interactively. Only a real publish signs.
+        if: ${{ env.DRY_RUN != 'true' }}
+        run: |
+          set -euo pipefail
+          token_json="$(curl -sSL \
+            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sigstore")"
+          id_token="$(printf '%s' "$token_json" | grep -o '"value":"[^"]*"' | head -1 | cut -d'"' -f4)"
+          [ -n "$id_token" ] || { echo "OIDC: runtime returned no token value" >&2; exit 1; }
+          echo "::add-mask::$id_token"
+          echo "SIGSTORE_ID_TOKEN=$id_token" >> "$GITHUB_ENV"
+
+      - name: Publish and sign, or print the plan
+        # A dry run prints each publication plan, having checked the .wasm's
+        # describe() against its entity; a real publish pushes the .wasm and the
+        # entity as one manifest and signs it keyless.
+        run: |
+          mode=(--sign)
+          if [ "$DRY_RUN" = "true" ]; then
+            mode=(--dry-run)
+          fi
+          aggrega-plugins/scripts/publish-plugin.sh publish \
+            --dir "$RUNNER_TEMP/plugin-release" \
+            --registry "$REGISTRY" \
+            "${mode[@]}"

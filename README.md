@@ -229,6 +229,82 @@ its artifact following, a build that reaches the step halts and names the plugin
 it could not resolve. Publishing in this order keeps a deployment from meeting a
 refusal it has no way to clear from its own side.
 
+### Publishing through CI
+
+The workflow `.github/workflows/publish-plugin-sign.yml` publishes a guest from
+its release tag. Pushing a tag of the form `<guest>/v<MAJOR>.<MINOR>.<PATCH>`
+starts it. It builds that guest from the commit the tag names, with the guest's
+own `build.sh`, checks that the entity's `metadata.version` and the version the
+build stamps both equal the tag's, and publishes the `.wasm` and the entity with
+`aggrega push --plugin --sign`, signed keyless with the workflow's own identity.
+A tag with a pre-release suffix starts nothing.
+
+Push release tags one at a time: GitHub starts no workflow for tags when more
+than three are pushed at once. For a tag push GitHub runs the workflow as it
+stands in the tagged commit, so a tag on a commit that does not carry the
+workflow starts nothing; publish such a tag with a manual run that names it.
+
+A manual run is a dry run unless `dry_run` is set to `false`, and a real publish
+always names a tag:
+
+```sh
+# Rehearse one tag: check the stored credential, build, print the plan.
+gh workflow run publish-plugin-sign.yml -f tag=litellm-gateway-config/v1.0.0
+
+# Rehearse every guest, each at its newest release tag.
+gh workflow run publish-plugin-sign.yml
+
+# Publish one tag for real.
+gh workflow run publish-plugin-sign.yml -f tag=litellm-gateway-config/v1.0.0 -f dry_run=false
+
+# Follow the run.
+gh run watch
+```
+
+**Every run, a dry run included, proves the stored credential against the
+registry before it builds anything.** It sends one authenticated `GET /v2/` to
+the registry `PLUGINS_PUBLISH_REGISTRY` names, with `REGISTRY_USERNAME` and
+`REGISTRY_PASSWORD`, and stops unless the registry answers `200`, naming those
+settings and reporting only the HTTP status. GitHub never shows a secret's value,
+so this is how to check that the stored secret matches the registry. It proves
+that the registry accepts the pair; a read-only pair is accepted too, so whether
+the pair may push is first tested by a real publish.
+
+The publish step runs inside the tooling image
+`hub.aggrega.ai/tools/aggrega:<TOOLING_IMAGE_TAG>`, which the CLI's release
+publisher creates. On a registry that does not hold it yet, the workflow checks
+for the image every 30 seconds for up to 30 minutes, then stops, naming the
+image and the `gh run rerun` that finishes the run once the CLI is published.
+
+The workflow reads these settings by name:
+
+| Setting                     | Kind     | What it holds                                                          |
+| --------------------------- | -------- | ---------------------------------------------------------------------- |
+| `PLUGINS_PUBLISH_REGISTRY`  | variable | The registry to publish to, written as its host.                       |
+| `REGISTRY_USERNAME`         | variable | The registry username.                                                 |
+| `REGISTRY_PASSWORD`         | secret   | The registry password.                                                 |
+| `TOOLING_IMAGE_TAG`         | variable | The tag of the tooling image the publish step runs inside.             |
+| `AGGREGA_RUNNER`            | variable | Optional: the runner label for the build and publish jobs.             |
+| `PLUGINS_PDK_REF`           | variable | Optional: the `aggrega-pdk` ref to build against; `main` when unset.   |
+| `PLUGINS_ABI_REF`           | variable | Optional: the `aggrega-abi` ref to build against; `main` when unset.   |
+| `SUBMODULE_APP_CLIENT_ID`   | secret   | The organization App that reads the kit repositories.                  |
+| `SUBMODULE_APP_PRIVATE_KEY` | secret   | That App's private key.                                                |
+
+The workflow's own steps call `scripts/publish-plugin.sh`, which runs the same
+way by hand, and `.github/scripts/registry-gate.sh`, which performs the
+credential check and the wait for the image. Run either with `--help` for its
+commands. By hand, the release script builds from a clone it makes of this
+repository, with the kits beside it as the guests' build files expect, and
+pushes nothing unless its `publish` command is given without `--dry-run`:
+
+```sh
+scripts/publish-plugin.sh resolve --tag litellm-gateway-config/v1.0.0
+scripts/publish-plugin.sh build --tags litellm-gateway-config/v1.0.0 \
+  --work /tmp/plugin-build --out /tmp/plugin-release
+scripts/publish-plugin.sh publish --dir /tmp/plugin-release \
+  --registry registry.example.com --dry-run
+```
+
 ## Build prerequisites
 
 - Every guest: `git`, and a clone of this repository that carries its tags,
