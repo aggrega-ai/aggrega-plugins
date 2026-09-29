@@ -11,6 +11,10 @@
 # smoke-rust/v<semver> tag. The kit's describe! macro reads them at compile
 # time from AGGREGA_VERSION and AGGREGA_COMMIT, and cargo rebuilds the crate
 # when either value changes.
+#
+# The .wasm names no directory of the machine that built it:
+# ../lib/build-paths.sh remaps the checkout's directory, the cargo home and the
+# toolchain's sources to fixed names.
 
 set -eo pipefail
 
@@ -23,7 +27,12 @@ source "${SCRIPT_DIR}/../lib/build-version.sh"
 plugin_build_stamp
 echo "Stamping version ${BUILD_VERSION}, commit ${BUILD_COMMIT}"
 
+# shellcheck source=SCRIPTDIR/../lib/build-paths.sh
+source "${SCRIPT_DIR}/../lib/build-paths.sh"
+plugin_build_rustflags
+
 (cd "${SCRIPT_DIR}" && AGGREGA_VERSION="${BUILD_VERSION}" AGGREGA_COMMIT="${BUILD_COMMIT}" \
+    CARGO_ENCODED_RUSTFLAGS="${BUILD_ENCODED_RUSTFLAGS}" \
     cargo build --release --target wasm32-wasip1)
 cp "${SCRIPT_DIR}/target/wasm32-wasip1/release/smoke_rust.wasm" "${OUT_DIR}/smoke-rust.wasm"
 echo "Wrote ${OUT_DIR}/smoke-rust.wasm"

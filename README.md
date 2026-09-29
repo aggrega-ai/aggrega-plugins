@@ -9,10 +9,12 @@ to what a plugin does; the WebAssembly runtime executes its bytes and moves the
 socket's payload in and its result out.
 
 Each guest is a directory holding its source, a `build.sh` that compiles it to
-a `.wasm` artifact, and the `Plugin` entity that describes it. The one file the
-guests share is `lib/build-version.sh`, the recipe every `build.sh` sources for
-the version and commit it stamps into the guest. Built artifacts are not
-committed — `build.sh` writes one beside its source.
+a `.wasm` artifact, and the `Plugin` entity that describes it. The guests share
+two files: `lib/build-version.sh`, the recipe every `build.sh` sources for the
+version and commit it stamps into the guest, and `lib/build-paths.sh`, which
+every Rust guest's `build.sh` sources so the `.wasm` names no directory of the
+machine that built it. Built artifacts are not committed — `build.sh` writes one
+beside its source.
 
 ## Plugins in this repository
 
