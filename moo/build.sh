@@ -25,8 +25,10 @@ echo "Stamping version ${BUILD_VERSION}, commit ${BUILD_COMMIT}"
 KIT=github.com/aggrega-ai/aggrega-pdk-go/pkg/aggrega
 
 # GOWORK=off builds this plugin module standalone, independent of any Go
-# workspace the surrounding checkout may define.
-(cd "${SCRIPT_DIR}" && GOWORK=off GOOS=wasip1 GOARCH=wasm go build -buildmode=c-shared \
+# workspace the surrounding checkout may define. -trimpath records each source
+# file by its module path rather than its directory on disk, so the .wasm names
+# no directory of the machine that built it.
+(cd "${SCRIPT_DIR}" && GOWORK=off GOOS=wasip1 GOARCH=wasm go build -trimpath -buildmode=c-shared \
     -ldflags "-X ${KIT}.Version=${BUILD_VERSION} -X ${KIT}.Commit=${BUILD_COMMIT}" \
     -o "${OUT_DIR}/moo.wasm" ./)
 echo "Wrote ${OUT_DIR}/moo.wasm"
