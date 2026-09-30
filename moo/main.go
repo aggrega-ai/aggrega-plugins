@@ -73,21 +73,21 @@ const cow = ` _______________________
 // alien is the full frame streamed in one write when the caller passes
 // --alien: a UFO tractor-beaming the classic cow, closed by an overline
 // ground bar.
-const alien = `            .-------.
-         _-' O O O O '-_
-        /_______________\
-        \_______________/
-        / | | | | | | | \
-       /  | | | | | | |  \
-      /   | | | | | | |   \
-     /                     \
-    /    Moooo!             \
-   /        ^__^             \
-  /         (@@)\_______      \
- /          (__)\       )\/\*  \
-/               ||----w |       \
-                ||     ||
-‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+const alien = `               .-------.
+            _-' O O O O '-_
+           /_______________\
+           \_______________/
+           / | | | | | | | \
+          /  | | | | | | |  \
+         /   | | | | | | |   \
+        /                     \
+       /    Moooo!             \
+      /     ^__^                \
+     /      (@@)\_______         \
+    /       (__)\       )\/\*     \
+   /            ||----w |          \
+  /             ||     ||           \
+ ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
 `
 
 //go:wasmexport describe

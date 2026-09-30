@@ -3,7 +3,7 @@ kind: Plugin
 metadata:
   name: moo
   pluginType: cli
-  version: 0.2.3
+  version: 0.2.4
   description: This Aggrega has Super Cow Powers.
   license: Apache-2.0
 spec:
