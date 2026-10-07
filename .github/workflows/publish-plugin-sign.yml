@@ -263,6 +263,18 @@ jobs:
           aggrega-plugins/scripts/publish-plugin.sh install-tools --dir "$RUNNER_TEMP/tools/bin"
           echo "$RUNNER_TEMP/tools/bin" >> "$GITHUB_PATH"
 
+      - name: Make this run's own build directories
+        # A persistent self-hosted runner keeps its temporary directory between
+        # jobs and empties it only as far as the runner's account may delete,
+        # so a fixed name there can still hold an earlier run's files, which
+        # the build refuses to build over. This run builds in directories of
+        # its own, made empty here; the steps below read them from the
+        # environment.
+        run: |
+          work="$(mktemp -d "$RUNNER_TEMP/plugin-build.XXXXXX")"
+          release="$(mktemp -d "$RUNNER_TEMP/plugin-release.XXXXXX")"
+          printf 'PLUGIN_WORK=%s\nPLUGIN_RELEASE=%s\n' "$work" "$release" >> "$GITHUB_ENV"
+
       - name: Build the guests at their release tags
         # Each guest builds from the commit its tag names, with its own
         # build.sh. The entity's metadata.version must equal the tag's version
@@ -272,16 +284,23 @@ jobs:
           aggrega-plugins/scripts/publish-plugin.sh build \
             --tags "$TAGS" \
             --kits "$GITHUB_WORKSPACE" \
-            --work "$RUNNER_TEMP/plugin-build" \
-            --out "$RUNNER_TEMP/plugin-release"
+            --work "$PLUGIN_WORK" \
+            --out "$PLUGIN_RELEASE"
 
       - name: Hand the built guests to the publish job
         uses: actions/upload-artifact@v4
         with:
           name: plugin-release
-          path: ${{ runner.temp }}/plugin-release
+          path: ${{ env.PLUGIN_RELEASE }}
           if-no-files-found: error
           retention-days: 7
+
+      - name: Remove this run's build directories
+        # Whatever the steps above did, so nothing this run built is left on
+        # a persistent runner for the runner's own clean-up to miss.
+        if: ${{ always() && env.PLUGIN_WORK != '' }}
+        run: |
+          rm -rf -- "$PLUGIN_WORK" "$PLUGIN_RELEASE"
 
   publish:
     needs: [registry, build]
@@ -323,11 +342,21 @@ jobs:
         with:
           path: aggrega-plugins
 
+      - name: Make this run's own release directory
+        # This job runs as root inside the tooling image, and what it writes
+        # into the runner's temporary directory belongs to root on the runner's
+        # host, where the runner's own account cannot delete it. So the guests
+        # arrive in a directory of this run's own, which no earlier run's guests
+        # can share, and the last step removes it as the user that wrote it.
+        run: |
+          release="$(mktemp -d "$RUNNER_TEMP/plugin-release.XXXXXX")"
+          printf 'PLUGIN_RELEASE=%s\n' "$release" >> "$GITHUB_ENV"
+
       - name: Receive the built guests
         uses: actions/download-artifact@v4
         with:
           name: plugin-release
-          path: ${{ runner.temp }}/plugin-release
+          path: ${{ env.PLUGIN_RELEASE }}
 
       - name: Authenticate to the registry
         # Only a real publish contacts the registry from this job; a dry run's
@@ -362,6 +391,18 @@ jobs:
             mode=(--dry-run)
           fi
           aggrega-plugins/scripts/publish-plugin.sh publish \
-            --dir "$RUNNER_TEMP/plugin-release" \
+            --dir "$PLUGIN_RELEASE" \
             --registry "$REGISTRY" \
             "${mode[@]}"
+
+      - name: Remove what this job wrote as root
+        # The release directory, and the checkout this job made in the
+        # workspace the runner's other jobs check out into. Removed from inside
+        # the container, by the user that wrote them, whatever the steps above
+        # did; left behind, the runner's account could not remove them.
+        if: ${{ always() }}
+        run: |
+          rm -rf -- "$GITHUB_WORKSPACE/aggrega-plugins"
+          if [ -n "${PLUGIN_RELEASE:-}" ]; then
+            rm -rf -- "$PLUGIN_RELEASE"
+          fi
