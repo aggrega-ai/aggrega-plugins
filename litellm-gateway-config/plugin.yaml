@@ -6,7 +6,7 @@ kind: Plugin
 metadata:
   name: litellm-gateway-config
   pluginType: pipeline-step
-  version: 1.0.1
+  version: 1.0.0
   license: Apache-2.0
   description: >
     Write runtime controls into an AI gateway's rendered configuration. The
