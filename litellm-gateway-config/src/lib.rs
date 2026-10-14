@@ -57,10 +57,16 @@
 //! byte-identical output whatever order the step happened to write them in.
 //! Entries are applied in the order the step declared them, because a list's
 //! order is part of what the list means.
+//!
+//! The pipeline-step socket carries canonical CBOR in both directions, so `step`
+//! takes and returns bytes: it reads its input with `FRPStepInput::decode_cbor`
+//! and returns its output's `encode_cbor()`, through the codec generated into
+//! the `aggrega-abi` crate. The document trees and the `with` values ride as the
+//! bytes of their JSON documents, which the step parses.
 
+use aggrega_abi::{FRPStepInput, FRPStepOutput, JSONPatchOp};
 use aggrega_pdk_rust::{PluginDescriptor, PluginDescriptorMeta, PluginExport, API_VERSION};
 use extism_pdk::{plugin_fn, FnResult};
-use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::BTreeMap;
 
@@ -126,9 +132,7 @@ fn descriptor() -> PluginDescriptor {
 /// One addressable unit the host hands the guest. A structured unit carries a
 /// `tree` (the RFC-6902-addressable view the guest content-selects and patches);
 /// an opaque unit carries no `tree`, so it is never a PATCH target.
-#[derive(Deserialize)]
 struct Unit {
-    #[serde(default)]
     tree: Option<Value>,
 }
 
@@ -136,23 +140,19 @@ struct Unit {
 /// FeatureRecipe attached to a host receives both roots; this guest acts only on
 /// `host`, because the setting it writes belongs to the gateway it is attached
 /// to and not to any document of its own.
-#[derive(Deserialize, Default)]
+#[derive(Default)]
 struct DocumentSet {
-    #[serde(default)]
     host: BTreeMap<String, Unit>,
 }
 
 /// The subset of the host's FRPStepInput this plugin reads: the document set and
 /// the step's rendered `with` block.
-#[derive(Deserialize)]
 struct StepInput {
     documents: DocumentSet,
-    #[serde(default)]
     step_input: BTreeMap<String, Value>,
 }
 
 /// One RFC 6902 patch addressed to a document by scope and key.
-#[derive(Serialize)]
 struct JsonPatchOp {
     scope: String,
     key: String,
@@ -161,14 +161,13 @@ struct JsonPatchOp {
     value: Value,
 }
 
-/// The host's FRPStepOutput wire shape. `error` reports that the step ran and
-/// could not complete: the host surfaces it as a failed invocation, which is
-/// what keeps a control that cannot be placed from passing as a silent success.
-#[derive(Serialize, Default)]
+/// What the step answers: key-addressed patches, or `error` reporting that the
+/// step ran and could not complete. The host surfaces an error as a failed
+/// invocation, which is what keeps a control that cannot be placed from passing
+/// as a silent success.
+#[derive(Default)]
 struct StepOutput {
-    #[serde(skip_serializing_if = "Vec::is_empty")]
     patches: Vec<JsonPatchOp>,
-    #[serde(skip_serializing_if = "String::is_empty")]
     error: String,
 }
 
@@ -185,9 +184,54 @@ pub fn describe() -> FnResult<String> {
 /// gateway's configuration body, writes what the step asked for into the named
 /// section, and emits one `replace` of the whole data entry.
 #[plugin_fn]
-pub fn step(input: String) -> FnResult<String> {
-    let parsed: StepInput = serde_json::from_str(&input)?;
-    Ok(serde_json::to_string(&run(parsed))?)
+pub fn step(input: Vec<u8>) -> FnResult<Vec<u8>> {
+    let parsed = read_input(&FRPStepInput::decode_cbor(&input)?)?;
+    Ok(write_output(run(parsed))?.encode_cbor()?)
+}
+
+/// Reads the subset of the decoded payload this step acts on. Each host unit's
+/// tree and each `with` value arrives as the bytes of its JSON document and is
+/// parsed here; a document that does not parse fails the step. The units and
+/// the `with` keys are held in sorted maps, so the step's selection and its
+/// output do not depend on the order either arrived in.
+fn read_input(wire: &FRPStepInput) -> Result<StepInput, serde_json::Error> {
+    let mut host = BTreeMap::new();
+    for (key, unit) in wire.documents.host.iter() {
+        let tree = match unit.tree.as_deref() {
+            Some(raw) => Some(serde_json::from_str(raw.get())?),
+            None => None,
+        };
+        host.insert(key.clone(), Unit { tree });
+    }
+    let mut step_input = BTreeMap::new();
+    for (key, raw) in wire.step_input.iter() {
+        step_input.insert(key.clone(), serde_json::from_str(raw.get())?);
+    }
+    Ok(StepInput {
+        documents: DocumentSet { host },
+        step_input,
+    })
+}
+
+/// Writes the step's answer as the payload the host reads. A patch's value rides
+/// as the bytes of its JSON document.
+fn write_output(out: StepOutput) -> Result<FRPStepOutput, serde_json::Error> {
+    let mut patches = Vec::with_capacity(out.patches.len());
+    for p in out.patches {
+        patches.push(JSONPatchOp {
+            scope: p.scope,
+            key: p.key,
+            op: p.op,
+            path: p.path,
+            value: Some(serde_json::value::to_raw_value(&p.value)?),
+            ..Default::default()
+        });
+    }
+    Ok(FRPStepOutput {
+        patches,
+        error: out.error,
+        ..Default::default()
+    })
 }
 
 fn run(parsed: StepInput) -> StepOutput {

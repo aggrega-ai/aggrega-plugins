@@ -61,7 +61,11 @@ rendered. It is also two exports:
   `emit`, over the `own` documents or the attached `host` component's.
 - `step()` receives the keyed document set, the step's rendered `with` block,
   and the render context; it returns RFC 6902 patches addressed by scope and
-  key, plus any side effects and diagnostics.
+  key, plus any side effects and diagnostics. Both directions travel as
+  canonical CBOR: the guest reads its input with the generated `FRPStepInput`
+  decoder and writes an `FRPStepOutput` with its encoder, the types the
+  `aggrega-abi` crate publishes, and each document's tree and each `with` value
+  arrive as the bytes of their JSON documents, which the guest parses.
 
 Two properties are worth knowing before writing one. A guest **cannot know the
 emitted filenames ahead of time**, so it selects the documents it targets by
@@ -320,6 +324,7 @@ scripts/publish-plugin.sh publish --dir /tmp/plugin-release \
 - `litellm-gateway-config` (Rust): a Rust toolchain with the
   `wasm32-unknown-unknown` target (`rustup target add wasm32-unknown-unknown`).
 
-Each guest depends on the matching Aggrega plugin development kit. The build
-files reference the kit from a sibling checkout, so this repository builds
-alongside the plugin development kits.
+Each guest depends on the matching Aggrega plugin development kit, and
+`litellm-gateway-config` on the `aggrega-abi` crate the Rust kit builds on as
+well. The build files reference both from sibling checkouts, so this repository
+builds alongside the plugin development kits and the ABI.

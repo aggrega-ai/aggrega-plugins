@@ -10,6 +10,8 @@ path = "src/lib.rs"
 
 [dependencies]
 aggrega-pdk-rust = { path = "../../aggrega-pdk/rust" }
+# The pipeline-step payload types and their codec, generated into the portable
+# ABI crate the kit itself builds against.
+aggrega-abi = { path = "../../aggrega-abi/rust" }
 extism-pdk = "1.4"
-serde = { version = "1", features = ["derive"] }
 serde_json = "1"
