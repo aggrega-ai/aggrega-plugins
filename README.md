@@ -4,7 +4,7 @@ Aggrega plugins that ship neither inside the compiler binary nor as core
 plugins: WebAssembly guests published to a registry and resolved from there.
 Every socket belongs here — a `cli` plugin that installs as a top-level
 `aggrega <command>`, a `pipeline-step` plugin a feature recipe runs over
-rendered documents, and any other socket a guest targets. The compiler is blind
+rendered documents, and any other socket a guest targets. The compiler is agnostic
 to what a plugin does; the WebAssembly runtime executes its bytes and moves the
 socket's payload in and its result out.
 
