@@ -7,6 +7,10 @@
 # AGGREGA_PLUGIN_WASM_OUT to write the artifact elsewhere (for example a
 # sidecar directory or a staging area a walk-through drives).
 #
+# The artifact takes the name ../lib/build-artifact.sh derives from this guest's
+# plugin.yaml: the name the compiler reads a plugin's .wasm under beside its
+# Plugin entity.
+#
 # The guest's describe() reports the version and commit of the tree it was
 # built from, read by ../lib/build-version.sh from this guest's
 # smoke-ts/v<semver> tag. The bundle step defines AGGREGA_PLUGIN_VERSION and
@@ -38,6 +42,10 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 OUT_DIR="${AGGREGA_PLUGIN_WASM_OUT:-${SCRIPT_DIR}}"
 mkdir -p "${OUT_DIR}" "${SCRIPT_DIR}/dist"
 
+# shellcheck source=SCRIPTDIR/../lib/build-artifact.sh
+source "${SCRIPT_DIR}/../lib/build-artifact.sh"
+plugin_build_artifact
+
 # shellcheck source=SCRIPTDIR/../lib/build-version.sh
 source "${SCRIPT_DIR}/../lib/build-version.sh"
 plugin_build_stamp
@@ -53,5 +61,5 @@ echo "Stamping version ${BUILD_VERSION}, commit ${BUILD_COMMIT}"
     "--define:AGGREGA_PLUGIN_COMMIT=\"${BUILD_COMMIT}\"")
 
 # Compile the bundled JS into a Wasm artifact embedding QuickJS.
-extism-js -i "${SCRIPT_DIR}/index.d.ts" "${SCRIPT_DIR}/dist/plugin.js" -o "${OUT_DIR}/smoke-ts.wasm"
-echo "Wrote ${OUT_DIR}/smoke-ts.wasm"
+extism-js -i "${SCRIPT_DIR}/index.d.ts" "${SCRIPT_DIR}/dist/plugin.js" -o "${OUT_DIR}/${BUILD_ARTIFACT}"
+echo "Wrote ${OUT_DIR}/${BUILD_ARTIFACT}"

@@ -6,6 +6,10 @@
 # AGGREGA_PLUGIN_WASM_OUT to write the artifact elsewhere (for example a
 # sidecar directory or a staging area a walk-through drives).
 #
+# The artifact takes the name ../lib/build-artifact.sh derives from this guest's
+# plugin.yaml: the name the compiler reads a plugin's .wasm under beside its
+# Plugin entity.
+#
 # The guest's describe() reports the version and commit of the tree it was
 # built from, read by ../lib/build-version.sh from this guest's moo/v<semver>
 # tag. The linker sets the kit's Version and Commit, which the kit's
@@ -16,6 +20,10 @@ set -eo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 OUT_DIR="${AGGREGA_PLUGIN_WASM_OUT:-${SCRIPT_DIR}}"
 mkdir -p "${OUT_DIR}"
+
+# shellcheck source=SCRIPTDIR/../lib/build-artifact.sh
+source "${SCRIPT_DIR}/../lib/build-artifact.sh"
+plugin_build_artifact
 
 # shellcheck source=SCRIPTDIR/../lib/build-version.sh
 source "${SCRIPT_DIR}/../lib/build-version.sh"
@@ -34,5 +42,5 @@ KIT=github.com/aggrega-ai/aggrega-pdk-go/pkg/aggrega
 # guest reports come from the -X stamps below instead.
 (cd "${SCRIPT_DIR}" && GOWORK=off GOOS=wasip1 GOARCH=wasm go build -trimpath -buildvcs=false -buildmode=c-shared \
     -ldflags "-X ${KIT}.Version=${BUILD_VERSION} -X ${KIT}.Commit=${BUILD_COMMIT}" \
-    -o "${OUT_DIR}/moo.wasm" ./)
-echo "Wrote ${OUT_DIR}/moo.wasm"
+    -o "${OUT_DIR}/${BUILD_ARTIFACT}" ./)
+echo "Wrote ${OUT_DIR}/${BUILD_ARTIFACT}"

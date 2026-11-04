@@ -6,6 +6,10 @@
 # AGGREGA_PLUGIN_WASM_OUT to write the artifact elsewhere (for example a
 # sidecar directory or a staging area a walk-through drives).
 #
+# The artifact takes the name ../lib/build-artifact.sh derives from this guest's
+# plugin.yaml: the name the compiler reads a plugin's .wasm under beside its
+# Plugin entity.
+#
 # The guest's describe() reports the version and commit of the tree it was
 # built from, read by ../lib/build-version.sh from this guest's
 # litellm-gateway-config/v<semver> tag. The kit's describe! macro reads them at
@@ -22,6 +26,10 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 OUT_DIR="${AGGREGA_PLUGIN_WASM_OUT:-${SCRIPT_DIR}}"
 mkdir -p "${OUT_DIR}"
 
+# shellcheck source=SCRIPTDIR/../lib/build-artifact.sh
+source "${SCRIPT_DIR}/../lib/build-artifact.sh"
+plugin_build_artifact
+
 # shellcheck source=SCRIPTDIR/../lib/build-version.sh
 source "${SCRIPT_DIR}/../lib/build-version.sh"
 plugin_build_stamp
@@ -35,5 +43,5 @@ plugin_build_rustflags
     CARGO_ENCODED_RUSTFLAGS="${BUILD_ENCODED_RUSTFLAGS}" \
     cargo build --release --target wasm32-unknown-unknown)
 cp "${SCRIPT_DIR}/target/wasm32-unknown-unknown/release/litellm_gateway_config.wasm" \
-   "${OUT_DIR}/litellm-gateway-config.wasm"
-echo "Wrote ${OUT_DIR}/litellm-gateway-config.wasm"
+   "${OUT_DIR}/${BUILD_ARTIFACT}"
+echo "Wrote ${OUT_DIR}/${BUILD_ARTIFACT}"

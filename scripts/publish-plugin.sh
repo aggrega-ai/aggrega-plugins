@@ -104,31 +104,10 @@ usage_error() {
   exit 2
 }
 
-# metadata_version <plugin.yaml> prints the entity's metadata.version: the
-# version key at the first indentation level under the top-level metadata key.
-metadata_version() {
-  awk -v q="'" '
-    /^[[:space:]]*(#.*)?$/ { next }
-    /^[^[:space:]]/ { inmeta = ($0 ~ /^metadata:[[:space:]]*(#.*)?$/); indent = ""; next }
-    inmeta {
-      match($0, /^[[:space:]]+/)
-      ind = substr($0, 1, RLENGTH)
-      if (indent == "") indent = ind
-      if (ind != indent) next
-      line = substr($0, RLENGTH + 1)
-      if (line ~ /^version:/) {
-        sub(/^version:[[:space:]]*/, "", line)
-        sub(/[[:space:]]+#.*$/, "", line)
-        sub(/[[:space:]]+$/, "", line)
-        first = substr(line, 1, 1)
-        if ((first == "\"" || first == q) && substr(line, length(line), 1) == first) {
-          line = substr(line, 2, length(line) - 2)
-        }
-        print line
-        exit
-      }
-    }' "$1"
-}
+# plugin_entity_metadata <plugin.yaml> <key> reads a key of an entity's metadata
+# block, the same way a guest's build reads it.
+# shellcheck source=SCRIPTDIR/../lib/entity-metadata.sh
+source "$SCRIPT_DIR/../lib/entity-metadata.sh"
 
 repo_root() {
   local dir="$1"
@@ -336,7 +315,7 @@ cmd_build() {
     say "$t: building $guest $version from $commit"
 
     entity="$clone/$guest/plugin.yaml"
-    entity_version="$(metadata_version "$entity")"
+    entity_version="$(plugin_entity_metadata "$entity" version)"
     if [ "$entity_version" != "$version" ]; then
       fail "$t: the entity $guest/plugin.yaml at that tag records metadata.version '${entity_version:-<none>}', not the tag's version '$version'. A tag names the commit that carries the entity it releases: set metadata.version, commit, and tag that commit."
     fi

@@ -17,7 +17,8 @@
 // no additional grants.
 //
 // Build: ./build.sh, which stamps the version and commit through the linker
-// and runs GOOS=wasip1 GOARCH=wasm go build -buildmode=c-shared -o moo.wasm ./
+// and runs GOOS=wasip1 GOARCH=wasm go build -buildmode=c-shared, writing the
+// .wasm under the name ../lib/build-artifact.sh derives from plugin.yaml.
 package main
 
 import (
