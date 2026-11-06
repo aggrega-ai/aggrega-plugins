@@ -343,3 +343,8 @@ Each guest depends on the matching Aggrega plugin development kit, and
 `litellm-gateway-config` on the `aggrega-abi` crate the Rust kit builds on as
 well. The build files reference both from sibling checkouts, so this repository
 builds alongside the plugin development kits and the ABI.
+
+## License
+
+The Aggrega plugins in this repository are released under the Apache License, Version 2.0; the full text is in the
+[`LICENSE`](LICENSE) file.
