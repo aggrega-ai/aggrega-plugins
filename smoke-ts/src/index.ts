@@ -24,7 +24,7 @@ import {
   writeStdout,
 } from "@aggrega-ai/aggrega-pdk-typescript";
 
-// The static describe() self-report: a v1alpha1 cli plugin contributing a
+// The static describe() self-report: a cli plugin contributing a
 // single command, "smoke-ts". Each entry in the commands list carries a name —
 // the token the host installs the subcommand under — and a description, its
 // short help. The cli_run export declares the stdout streaming host function it

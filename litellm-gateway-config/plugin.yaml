@@ -32,7 +32,7 @@ metadata:
     without contacting the registry, and halts if either no longer matches the
     digest recorded for it.
 spec:
-  abiVersion: v1alpha1
+  abiVersion: v1beta1
   runtime:
     maxMemoryPages: 4096
     timeoutMs: 300000

@@ -103,7 +103,7 @@ enum SectionShape {
     Sequence { entry_indent: usize },
 }
 
-/// The static `describe()` self-report: a v1alpha1 `pipeline-step` plugin whose
+/// The static `describe()` self-report: a `pipeline-step` plugin whose
 /// `step` export patches the host component's rendered configuration and is
 /// tested-compatible only with the `helm` provider (the provider that synthesizes
 /// the gateway's workload and emits its ConfigMap).

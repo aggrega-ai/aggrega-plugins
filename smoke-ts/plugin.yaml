@@ -7,7 +7,7 @@ metadata:
   description: Report the argument vector from a TypeScript cli plugin.
   license: Apache-2.0
 spec:
-  abiVersion: v1alpha1
+  abiVersion: v1beta1
   exports:
     - name: cli_run
   runtime:
