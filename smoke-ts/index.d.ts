@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2026 Cognitio S.r.l.
+// Copyright 2026 Cognitio s.r.l.
 
 // Interface declaration consumed by extism-js at compile time.
 // The `extism:host` user interface declares the streaming stdout host
