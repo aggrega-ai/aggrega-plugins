@@ -30,7 +30,7 @@ source "${SCRIPT_DIR}/../lib/build-version.sh"
 plugin_build_stamp
 echo "Stamping version ${BUILD_VERSION}, commit ${BUILD_COMMIT}"
 
-KIT=github.com/aggrega-ai/aggrega-pdk-go/pkg/aggrega
+KIT=github.com/aggrega-ai/aggrega-pdk/go/pkg/aggrega
 
 # GOWORK=off builds this plugin module standalone, independent of any Go
 # workspace the surrounding checkout may define. -trimpath records each source

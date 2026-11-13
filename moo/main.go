@@ -24,7 +24,7 @@ package main
 import (
 	pdk "github.com/extism/go-pdk"
 
-	"github.com/aggrega-ai/aggrega-pdk-go/pkg/aggrega"
+	"github.com/aggrega-ai/aggrega-pdk/go/pkg/aggrega"
 )
 
 // alienFlag is the long name of the --alien flag moo declares. When it appears
