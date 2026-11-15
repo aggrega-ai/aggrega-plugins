@@ -341,8 +341,8 @@ scripts/publish-plugin.sh publish --dir /tmp/plugin-release \
 
 Each guest depends on the matching Aggrega plugin development kit, and
 `litellm-gateway-config` on the `aggrega-abi` crate the Rust kit builds on as
-well. The build files reference both from sibling checkouts, so this repository
-builds alongside the plugin development kits and the ABI.
+well. Clone aggrega-pdk and aggrega-abi next to this repository; the build files
+reference them there.
 
 ## License
 
