@@ -4,7 +4,9 @@ version = 4
 
 [[package]]
 name = "aggrega-abi"
-version = "0.1.0-alpha.1"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c2ccbb74b74e1b0b80ba8f758ab38397614d7995f76c0710e5850e41ab8e8c3d"
 dependencies = [
  "serde",
  "serde_json",
@@ -12,7 +14,9 @@ dependencies = [
 
 [[package]]
 name = "aggrega-pdk-rust"
-version = "0.1.0-alpha.1"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a54d6c395e3ccff51d6e179558c07c8962650648543214682831c8cc6319ce0c"
 dependencies = [
  "aggrega-abi",
  "base64",

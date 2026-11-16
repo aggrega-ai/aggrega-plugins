@@ -9,5 +9,5 @@ crate-type = ["cdylib"]
 path = "src/lib.rs"
 
 [dependencies]
-aggrega-pdk-rust = { path = "../../aggrega-pdk/rust" }
+aggrega-pdk-rust = "0.9.0"
 extism-pdk = "1.4"

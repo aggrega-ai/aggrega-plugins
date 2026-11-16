@@ -210,11 +210,13 @@ jobs:
           fetch-tags: true
 
       - name: Check out the aggrega-pdk kit
-        # Each guest names the kits by the relative path ../../aggrega-pdk and
-        # ../../aggrega-abi from its own directory, so they sit beside this
-        # repository. No guest pins a kit revision, so the kits are checked out
-        # at PLUGINS_PDK_REF and PLUGINS_ABI_REF; the build prints the commits
-        # it built against.
+        # The Go and TypeScript guests name the kits by the relative path
+        # ../../aggrega-pdk and ../../aggrega-abi from their own directory, so
+        # they sit beside this repository; the Rust guests take the kit crates
+        # from crates.io by version and do not read these checkouts. No Go or
+        # TypeScript guest pins a kit revision, so the kits are checked out at
+        # PLUGINS_PDK_REF and PLUGINS_ABI_REF; the build prints the commits it
+        # built against.
         uses: actions/checkout@v5
         with:
           repository: aggrega-ai/aggrega-pdk

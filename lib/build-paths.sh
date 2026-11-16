@@ -13,8 +13,7 @@
 #
 # plugin_build_rustflags maps each of those directories to a fixed name:
 #
-#   the directory holding this repository, where the     .
-#     guests' build files also expect the kits
+#   the directory holding this repository                 .
 #   the cargo home (CARGO_HOME, or ~/.cargo)              cargo-home
 #   the toolchain's standard-library sources              /rustc/<commit-hash>
 #
@@ -22,11 +21,12 @@
 # carries, so a guest's bytes do not depend on whether rust-src is installed.
 #
 # The remap removes those paths. It does not make the bytes independent of where
-# the build runs: cargo derives the identity of a path dependency outside the
-# guest's own workspace, such as the kits beside this repository, from its
-# absolute location, and that identity reaches the bytes, the symbol names among
-# them, so the same commit built with the kits in another directory yields
-# different bytes.
+# the build runs when a guest takes a path dependency outside its own workspace:
+# cargo derives that dependency's identity from its absolute location, and that
+# identity reaches the bytes, the symbol names among them, so the same commit
+# built with the dependency in another directory yields different bytes. The Rust
+# guests here take the kit crates from crates.io by version, which carries no
+# such location.
 #
 # rustc applies the LAST --remap-path-prefix whose prefix matches a path, so the
 # directory holding the checkout is given first: a checkout straight under a home
