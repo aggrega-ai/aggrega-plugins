@@ -18,8 +18,9 @@ name: Publish and sign a plugin
 #             waiting a bounded time for it. It runs on a GitHub-hosted runner,
 #             so a wait for the image never holds the runner the CLI's own
 #             publisher needs to publish that image.
-#   build     builds the guest with its own build.sh against the plugin
-#             development kits checked out beside it, checks that the entity's
+#   build     builds the guest with its own build.sh, which takes the plugin
+#             development kits from its language's package registry at the
+#             version the guest's manifest names, checks that the entity's
 #             metadata.version and the version the build stamped both equal the
 #             tag's, and hands the .wasm and the entity to the next job.
 #   publish   runs inside the tooling image and publishes with aggrega push,
@@ -52,13 +53,7 @@ name: Publish and sign a plugin
 #                                        job runs inside
 #              AGGREGA_RUNNER            the runner label for the build and
 #                                        publish jobs (optional)
-#              PLUGINS_PDK_REF           the aggrega-pdk ref to build against
-#                                        (optional, main by default)
-#              PLUGINS_ABI_REF           the aggrega-abi ref to build against
-#                                        (optional, main by default)
 #   secrets    REGISTRY_PASSWORD         the registry password
-#              SUBMODULE_APP_CLIENT_ID   the organization App that reads the
-#              SUBMODULE_APP_PRIVATE_KEY private kit repositories
 
 on:
   # A release tag is the trigger and the human gate. The pattern matches
@@ -190,16 +185,6 @@ jobs:
     env:
       TAGS: ${{ needs.registry.outputs.tags }}
     steps:
-      - name: Mint org app token for the kit repositories
-        # The kit repositories are private; a GitHub App installation token
-        # scoped to the organization grants the checkouts below read access.
-        id: app-token
-        uses: actions/create-github-app-token@v3
-        with:
-          client-id: ${{ secrets.SUBMODULE_APP_CLIENT_ID }}
-          private-key: ${{ secrets.SUBMODULE_APP_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
-
       - name: Check out this repository with its tags
         # Full history and tags: the build clones this checkout, moves the clone
         # onto each tag, and each guest's build stamps its version from the tags.
@@ -208,29 +193,6 @@ jobs:
           path: aggrega-plugins
           fetch-depth: 0
           fetch-tags: true
-
-      - name: Check out the aggrega-pdk kit
-        # The Go and TypeScript guests name the kits by the relative path
-        # ../../aggrega-pdk and ../../aggrega-abi from their own directory, so
-        # they sit beside this repository; the Rust guests take the kit crates
-        # from crates.io by version and do not read these checkouts. No Go or
-        # TypeScript guest pins a kit revision, so the kits are checked out at
-        # PLUGINS_PDK_REF and PLUGINS_ABI_REF; the build prints the commits it
-        # built against.
-        uses: actions/checkout@v5
-        with:
-          repository: aggrega-ai/aggrega-pdk
-          path: aggrega-pdk
-          ref: ${{ vars.PLUGINS_PDK_REF || 'main' }}
-          token: ${{ steps.app-token.outputs.token }}
-
-      - name: Check out the aggrega-abi kit
-        uses: actions/checkout@v5
-        with:
-          repository: aggrega-ai/aggrega-abi
-          path: aggrega-abi
-          ref: ${{ vars.PLUGINS_ABI_REF || 'main' }}
-          token: ${{ steps.app-token.outputs.token }}
 
       - name: Install Rust for the Rust guests
         # The Rust guests build to wasm32-unknown-unknown and wasm32-wasip1, on
@@ -285,7 +247,6 @@ jobs:
         run: |
           aggrega-plugins/scripts/publish-plugin.sh build \
             --tags "$TAGS" \
-            --kits "$GITHUB_WORKSPACE" \
             --work "$PLUGIN_WORK" \
             --out "$PLUGIN_RELEASE"
 

@@ -1,3 +1,7 @@
+github.com/aggrega-ai/aggrega-abi/go v0.9.0 h1:cBYuK+6LuVOU6FQ3YMw6s+1bwabu5k2EuQG/ot53Jss=
+github.com/aggrega-ai/aggrega-abi/go v0.9.0/go.mod h1:YwKns9kwVgfr6Qs/5CVqawbbOzpi3LfGTyt20CCp40Q=
+github.com/aggrega-ai/aggrega-pdk/go v0.9.0 h1:B+pue0bfOzd6a3vb7bpVJ/xabnw5AEha6d8rawt3sGw=
+github.com/aggrega-ai/aggrega-pdk/go v0.9.0/go.mod h1:FEaKUp3N2qrsye9xw8IX6LrmOSzQEkJZU11Sqn6uwgU=
 github.com/extism/go-pdk v1.1.3 h1:hfViMPWrqjN6u67cIYRALZTZLk/enSPpNKa+rZ9X2SQ=
 github.com/extism/go-pdk v1.1.3/go.mod h1:Gz+LIU/YCKnKXhgge8yo5Yu1F/lbv7KtKFkiCSzW/P4=
 github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 h1:KRzFb2m7YtdldCEkzs6KqmJw4nqEVZGK7IN2kJkjTuQ=

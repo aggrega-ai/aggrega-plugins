@@ -306,17 +306,12 @@ The workflow reads these settings by name:
 | `REGISTRY_PASSWORD`         | secret   | The registry password.                                                 |
 | `TOOLING_IMAGE_TAG`         | variable | The tag of the tooling image the publish step runs inside.             |
 | `AGGREGA_RUNNER`            | variable | Optional: the runner label for the build and publish jobs.             |
-| `PLUGINS_PDK_REF`           | variable | Optional: the `aggrega-pdk` ref to build against; `main` when unset.   |
-| `PLUGINS_ABI_REF`           | variable | Optional: the `aggrega-abi` ref to build against; `main` when unset.   |
-| `SUBMODULE_APP_CLIENT_ID`   | secret   | The organization App that reads the kit repositories.                  |
-| `SUBMODULE_APP_PRIVATE_KEY` | secret   | That App's private key.                                                |
 
 The workflow's own steps call `scripts/publish-plugin.sh`, which runs the same
 way by hand, and `.github/scripts/registry-gate.sh`, which performs the
 credential check and the wait for the image. Run either with `--help` for its
 commands. By hand, the release script builds from a clone it makes of this
-repository, with the kits beside it as the guests' build files expect, and
-pushes nothing unless its `publish` command is given without `--dry-run`:
+repository and pushes nothing unless its `publish` command is given without `--dry-run`:
 
 ```sh
 scripts/publish-plugin.sh resolve --tag litellm-gateway-config/v1.0.0
@@ -339,10 +334,14 @@ scripts/publish-plugin.sh publish --dir /tmp/plugin-release \
 - `litellm-gateway-config` (Rust): a Rust toolchain with the
   `wasm32-unknown-unknown` target (`rustup target add wasm32-unknown-unknown`).
 
-Each guest depends on the matching Aggrega plugin development kit, and
-`litellm-gateway-config` on the `aggrega-abi` crate the Rust kit builds on as
-well. Clone aggrega-pdk and aggrega-abi next to this repository; the build files
-reference them there.
+Each guest depends on the matching Aggrega plugin development kit by its
+released version, and `litellm-gateway-config` on the `aggrega-abi` crate the
+Rust kit builds on as well; each build fetches them from its language's package
+registry — `moo` the Go modules `github.com/aggrega-ai/aggrega-pdk/go` and
+`github.com/aggrega-ai/aggrega-abi/go`, the Rust guests the crates
+`aggrega-pdk-rust` and `aggrega-abi`, `smoke-ts` the npm package
+`@aggrega-ai/aggrega-pdk-typescript` — so a clone of this repository builds on
+its own.
 
 ## License
 

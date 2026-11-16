@@ -36,10 +36,9 @@ KIT=github.com/aggrega-ai/aggrega-pdk/go/pkg/aggrega
 # workspace the surrounding checkout may define. -trimpath records each source
 # file by its module path rather than its directory on disk, so the .wasm names
 # no directory of the machine that built it. -buildvcs=false keeps the
-# version-control stamp out of the build info: this directory sits in a
-# repository nested inside another, and Go reads the outer one's commit, so the
-# bytes would otherwise change with every commit there. The version and commit a
-# guest reports come from the -X stamps below instead.
+# version-control stamp out of the build info, so the bytes depend on the
+# source alone and not on the state of whichever repository holds the checkout.
+# The version and commit a guest reports come from the -X stamps below instead.
 (cd "${SCRIPT_DIR}" && GOWORK=off GOOS=wasip1 GOARCH=wasm go build -trimpath -buildvcs=false -buildmode=c-shared \
     -ldflags "-X ${KIT}.Version=${BUILD_VERSION} -X ${KIT}.Commit=${BUILD_COMMIT}" \
     -o "${OUT_DIR}/${BUILD_ARTIFACT}" ./)

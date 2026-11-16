@@ -59,17 +59,15 @@ Commands:
       calls, verify each against its pinned SHA-256, and install them into
       <dir>. Add <dir> to PATH afterwards.
 
-  build --tags "<tag>..." --work <dir> --out <dir> [--repo <dir>] [--kits <dir>]
+  build --tags "<tag>..." --work <dir> --out <dir> [--repo <dir>]
       Build each tag's guest from a clone of the repository at the commit the
       tag names. Before building it checks that the entity's metadata.version
       equals the tag's version; after, that the build stamped exactly that
-      version. The clone is made in <work>, which must be absent or empty, with
-      the plugin development kits beside it as the guests' build files expect.
-      Each guest's entity, its .wasm and a build.txt naming the tag, the
-      commits and the stamp land in <out>/<guest>/.
-      --kits names the directory holding the aggrega-pdk and aggrega-abi
-      checkouts; it defaults to the directory holding the repository. For a
-      TypeScript guest the TypeScript kits are built there first.
+      version. The clone is made in <work>, which must be absent or empty. Each
+      guest takes the plugin development kits from its language's package
+      registry at the version its own manifest names. Each guest's entity, its
+      .wasm and a build.txt naming the tag, the commit and the stamp land in
+      <out>/<guest>/.
 
   publish --dir <dir> --registry <host> (--dry-run | --sign [--key <file>])
       Publish each guest a build left in <dir>: its entity and its .wasm, with
@@ -239,35 +237,14 @@ cmd_install_tools() {
   say "installed extism-js $EXTISM_JS_VERSION and binaryen $BINARYEN_VERSION (wasm-merge, wasm-opt) into $dir"
 }
 
-# kit_commit <dir> names the commit a kit checkout is at, and says when it
-# carries changes no commit holds.
-kit_commit() {
-  local dir="$1" sha dirty=""
-  sha="$(git -C "$dir" rev-parse HEAD 2>/dev/null)" || { printf 'not a git checkout'; return 0; }
-  if [ -n "$(git -C "$dir" status --porcelain --untracked-files=no 2>/dev/null)" ]; then
-    dirty=" with uncommitted changes"
-  fi
-  printf '%s%s' "$sha" "$dirty"
-}
-
-# prepare_typescript_kits <kits> builds the TypeScript kits with the kit's own
-# build script, because the TypeScript guest's bundle reads the kit's compiled
-# output, which a checkout does not carry.
-prepare_typescript_kits() {
-  local kits="$1"
-  say "building the TypeScript kits in $kits/aggrega-pdk/typescript and $kits/aggrega-abi/typescript"
-  (cd "$kits/aggrega-pdk/typescript" && npm ci --no-audit --no-fund && npm run build)
-}
-
 cmd_build() {
-  local tags_arg="" tags_set=false work="" out="" repo="$SCRIPT_DIR/.." kits=""
+  local tags_arg="" tags_set=false work="" out="" repo="$SCRIPT_DIR/.."
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --tags) [ "$#" -ge 2 ] || usage_error "--tags needs a value"; tags_arg="$2"; tags_set=true; shift 2 ;;
       --work) [ "$#" -ge 2 ] || usage_error "--work needs a value"; work="$2"; shift 2 ;;
       --out) [ "$#" -ge 2 ] || usage_error "--out needs a value"; out="$2"; shift 2 ;;
       --repo) [ "$#" -ge 2 ] || usage_error "--repo needs a value"; repo="$2"; shift 2 ;;
-      --kits) [ "$#" -ge 2 ] || usage_error "--kits needs a value"; kits="$2"; shift 2 ;;
       -h|--help) usage; exit 0 ;;
       *) usage_error "build: unknown argument '$1'" ;;
     esac
@@ -280,12 +257,6 @@ cmd_build() {
   [ "${#tags[@]}" -gt 0 ] || usage_error "build needs at least one tag in --tags"
 
   repo="$(repo_root "$repo")"
-  [ -n "$kits" ] || kits="$(dirname "$repo")"
-  kits="$(cd "$kits" && pwd)"
-  local kit
-  for kit in aggrega-pdk aggrega-abi; do
-    [ -d "$kits/$kit" ] || fail "no $kit checkout in $kits; the guests build against the kits checked out beside this repository (--kits names that directory)"
-  done
 
   local t
   for t in "${tags[@]}"; do
@@ -301,12 +272,8 @@ cmd_build() {
 
   local clone="$work/aggrega-plugins"
   git clone --quiet "$repo" "$clone"
-  ln -s "$kits/aggrega-pdk" "$work/aggrega-pdk"
-  ln -s "$kits/aggrega-abi" "$work/aggrega-abi"
-  say "kit aggrega-pdk at $(kit_commit "$kits/aggrega-pdk")"
-  say "kit aggrega-abi at $(kit_commit "$kits/aggrega-abi")"
 
-  local typescript_ready=false guest version commit entity entity_version gout log stamp stamped_version stamped_commit
+  local guest version commit entity entity_version gout log stamp stamped_version stamped_commit
   for t in "${tags[@]}"; do
     guest="${t%%/v*}"
     version="${t#*/v}"
@@ -318,11 +285,6 @@ cmd_build() {
     entity_version="$(plugin_entity_metadata "$entity" version)"
     if [ "$entity_version" != "$version" ]; then
       fail "$t: the entity $guest/plugin.yaml at that tag records metadata.version '${entity_version:-<none>}', not the tag's version '$version'. A tag names the commit that carries the entity it releases: set metadata.version, commit, and tag that commit."
-    fi
-
-    if [ -f "$clone/$guest/package.json" ] && ! "$typescript_ready"; then
-      prepare_typescript_kits "$kits"
-      typescript_ready=true
     fi
 
     gout="$out/$guest"
@@ -346,9 +308,8 @@ cmd_build() {
     shopt -u nullglob
     [ "${#wasms[@]}" -eq 1 ] || fail "$t: the build left ${#wasms[@]} .wasm files in $gout, where one was expected"
     cp "$entity" "$gout/plugin.yaml"
-    printf 'tag=%s\nversion=%s\ncommit=%s\nstamped=%s %s\naggrega-pdk=%s\naggrega-abi=%s\n' \
-      "$t" "$version" "$commit" "$stamped_version" "$stamped_commit" \
-      "$(kit_commit "$kits/aggrega-pdk")" "$(kit_commit "$kits/aggrega-abi")" > "$gout/build.txt"
+    printf 'tag=%s\nversion=%s\ncommit=%s\nstamped=%s %s\n' \
+      "$t" "$version" "$commit" "$stamped_version" "$stamped_commit" > "$gout/build.txt"
     say "$t: built $(basename "${wasms[0]}") stamped $stamped_version, commit $stamped_commit; entity metadata.version $entity_version"
   done
 }

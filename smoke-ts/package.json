@@ -8,7 +8,7 @@
     "bundle": "esbuild src/index.ts --bundle --format=cjs --target=es2022 --platform=neutral --main-fields=main --outfile=dist/plugin.js"
   },
   "dependencies": {
-    "@aggrega-ai/aggrega-pdk-typescript": "file:../../aggrega-pdk/typescript"
+    "@aggrega-ai/aggrega-pdk-typescript": "0.9.0"
   },
   "devDependencies": {
     "@extism/js-pdk": "1.1.1",
