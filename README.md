@@ -181,10 +181,13 @@ aggrega push moo/plugin.yaml --plugin moo/cli--moo.wasm \
 Each publication carries the guest's third-party notices, packed as a layer of
 the artifact after the `.wasm`, and an SBOM of the same third-party dependencies,
 attached as an `application/spdx+json` referrer. For a TypeScript guest both list
-the packages its `package-lock.json` bundles and the JavaScript runtime and
-engine the build merges into the `.wasm`. The generator identifies the
-`extism-js` on `PATH` by its sha256 and refuses one whose release it holds no
-license texts for. `scripts/publish-plugin.sh build` writes
+the packages its `package-lock.json` bundles and, from the JavaScript runtime the
+build merges into the `.wasm`: the Extism JS PDK, its QuickJS-NG engine and
+rquickjs bindings, the core-js and urlpattern-polyfill code of its prelude, and
+the Rust standard library and wasi-libc it is built with. The generator
+identifies that runtime by the sha256 of the `extism-js` on `PATH`, the one the
+build runs, and refuses one whose release it holds no license texts for.
+`scripts/publish-plugin.sh build` writes
 both beside the `.wasm` with `scripts/gen-third-party-licenses.sh` of an
 `aggrega-cli` checkout beside this repository (`../aggrega-cli`), from the
 guest's lockfile: `go.sum`, `Cargo.lock` or `package-lock.json`. Every guest

@@ -19,26 +19,31 @@
 
 set -eo pipefail
 
-# Bring node + extism-js + binaryen onto PATH for non-interactive
-# subprocess invocations.
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# Fall back to node, extism-js and binaryen installed under the home directory
+# for a non-interactive shell whose PATH lacks them. The directories go after
+# the caller's PATH, so the caller's order decides which extism-js runs: the one
+# the third-party notices generator, run with the same PATH, attributes.
 if [ -d "${HOME}/n/bin" ]; then
-    export PATH="${HOME}/n/bin:${PATH}"
+    export PATH="${PATH}:${HOME}/n/bin"
 fi
 if [ -d "${HOME}/.local/bin" ]; then
-    export PATH="${HOME}/.local/bin:${PATH}"
+    export PATH="${PATH}:${HOME}/.local/bin"
 fi
 
 for tool in node npm extism-js wasm-merge wasm-opt; do
     if ! command -v "$tool" >/dev/null 2>&1; then
+        extism_pin="$(sed -nE 's/^EXTISM_JS_VERSION=(.+)$/\1/p' "${SCRIPT_DIR}/../scripts/publish-plugin.sh" 2>/dev/null || true)"
         echo "error: required tool '$tool' not on PATH for the TypeScript plugin build."
-        echo "  extism-js: install from github.com/extism/js-pdk/releases (v1.6.0 line)"
-        echo "  wasm-merge + wasm-opt: install via the binaryen release tarball"
+        echo "  extism-js ${extism_pin:-(the release ../scripts/publish-plugin.sh pins)} and wasm-merge + wasm-opt:"
+        echo "    ../scripts/publish-plugin.sh install-tools --dir <dir> installs the pinned releases;"
+        echo "    then put <dir> on PATH"
         echo "  node + npm: ensure your node install is on PATH"
         exit 1
     fi
 done
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 OUT_DIR="${AGGREGA_PLUGIN_WASM_OUT:-${SCRIPT_DIR}}"
 mkdir -p "${OUT_DIR}" "${SCRIPT_DIR}/dist"
 
