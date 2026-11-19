@@ -12,6 +12,14 @@
 # the same way by hand. Nothing is pushed unless the publish command is given
 # without --dry-run.
 #
+# Each publication carries the guest's third-party notices and an SBOM of what
+# the guest links in. The build writes both beside the .wasm, with the generator
+# of an aggrega-cli checkout beside this repository, and the publication hands
+# them to aggrega push. Every guest therefore needs its lockfile (go.sum,
+# Cargo.lock or package-lock.json) committed; a guest without it is refused.
+# Publishing needs a tooling image or an aggrega binary whose push takes
+# --plugin-notices and --plugin-sbom.
+#
 # Run with --help for the commands.
 
 set -euo pipefail
@@ -66,12 +74,18 @@ Commands:
       version. The clone is made in <work>, which must be absent or empty. Each
       guest takes the plugin development kits from its language's package
       registry at the version its own manifest names. Each guest's entity, its
-      .wasm and a build.txt naming the tag, the commit and the stamp land in
-      <out>/<guest>/.
+      .wasm, its third-party notices (notices.md), its SBOM (sbom.spdx.json) and
+      a build.txt naming the tag, the commit and the stamp land in
+      <out>/<guest>/. The notices and the SBOM are generated from the guest's
+      lockfile by scripts/gen-third-party-licenses.sh of an aggrega-cli checkout
+      beside this repository (../aggrega-cli); the build refuses a guest
+      without its lockfile, and refuses to run without that checkout.
 
   publish --dir <dir> --registry <host> (--dry-run | --sign [--key <file>])
-      Publish each guest a build left in <dir>: its entity and its .wasm, with
-      aggrega push --plugin. --dry-run prints each publication plan and
+      Publish each guest a build left in <dir>: its entity, its .wasm, its
+      notices and its SBOM, with aggrega push --plugin, --plugin-notices and
+      --plugin-sbom; a guest missing either file is refused, naming it, before
+      anything is pushed. --dry-run prints each publication plan and
       contacts no registry; aggrega push still reads describe() from the .wasm
       and refuses an entity that disagrees with it. --sign signs each
       publication, keyless unless --key names an ECDSA P-256 private key.
@@ -237,6 +251,29 @@ cmd_install_tools() {
   say "installed extism-js $EXTISM_JS_VERSION and binaryen $BINARYEN_VERSION (wasm-merge, wasm-opt) into $dir"
 }
 
+# notices_generator prints the generator of the aggrega-cli checkout beside this
+# repository, and refuses when that checkout is absent.
+notices_generator() {
+  local gen="$SCRIPT_DIR/../../aggrega-cli/scripts/gen-third-party-licenses.sh"
+  [ -f "$gen" ] || fail "the notices generator is missing: expected $gen. Check out aggrega-cli beside this repository (a sibling directory named aggrega-cli), at the release the tooling image is."
+  printf '%s\n' "$gen"
+}
+
+# generate_notices <tag> <guest> <guest-dir> <out-dir> writes the guest's
+# notices.md and sbom.spdx.json into <out-dir>, from the lockfile in <guest-dir>
+# and the toolchain and caches of the build that just ran there.
+generate_notices() {
+  local t="$1" guest="$2" gdir="$3" gout="$4" gen
+  gen="$(notices_generator)"
+  if ! bash "$gen" --guest "$gdir" --out "$gout"; then
+    fail "$t: the third-party notices and SBOM of $guest could not be generated; its output is above. A guest needs its lockfile (go.sum, Cargo.lock or package-lock.json) committed."
+  fi
+  local f
+  for f in notices.md sbom.spdx.json; do
+    [ -s "$gout/$f" ] || fail "$t: generating the notices of $guest left no $f in $gout"
+  done
+}
+
 cmd_build() {
   local tags_arg="" tags_set=false work="" out="" repo="$SCRIPT_DIR/.."
   while [ "$#" -gt 0 ]; do
@@ -307,6 +344,7 @@ cmd_build() {
     local wasms=("$gout"/*.wasm)
     shopt -u nullglob
     [ "${#wasms[@]}" -eq 1 ] || fail "$t: the build left ${#wasms[@]} .wasm files in $gout, where one was expected"
+    generate_notices "$t" "$guest" "$clone/$guest" "$gout"
     cp "$entity" "$gout/plugin.yaml"
     printf 'tag=%s\nversion=%s\ncommit=%s\nstamped=%s %s\n' \
       "$t" "$version" "$commit" "$stamped_version" "$stamped_commit" > "$gout/build.txt"
@@ -342,14 +380,19 @@ cmd_publish() {
   done
   [ "${#gdirs[@]}" -gt 0 ] || fail "no built guest in $dir: each guest's entity is expected at <dir>/<guest>/plugin.yaml"
 
-  local wasms args
+  local wasms args f
+  for gdir in "${gdirs[@]}"; do
+    for f in notices.md sbom.spdx.json; do
+      [ -s "$gdir/$f" ] || fail "$(basename "$gdir"): $f is missing from $gdir; nothing was pushed. A build writes it beside the .wasm."
+    done
+  done
   for gdir in "${gdirs[@]}"; do
     wasms=("$gdir"/*.wasm)
     [ "${#wasms[@]}" -eq 1 ] || fail "$gdir holds ${#wasms[@]} .wasm files, where one was expected"
     if [ -f "$gdir/build.txt" ]; then
       say "$(basename "$gdir"): $(awk -F= '$1 == "tag" { printf "tag %s", $2 } $1 == "commit" { printf ", commit %s", $2 }' "$gdir/build.txt")"
     fi
-    args=(push "$gdir/plugin.yaml" --plugin "${wasms[0]}" --registry "$registry")
+    args=(push "$gdir/plugin.yaml" --plugin "${wasms[0]}" --plugin-notices "$gdir/notices.md" --plugin-sbom "$gdir/sbom.spdx.json" --registry "$registry")
     if "$dry"; then
       args+=(--dry-run)
     else

@@ -174,8 +174,21 @@ git tag moo/v0.2.3
 #    artifact and records the content digest of its verified bytes; it first
 #    checks the entity's version and synced records against the .wasm and
 #    refuses a file that has drifted from its binary.
-aggrega push moo/plugin.yaml --plugin moo/cli--moo.wasm
+aggrega push moo/plugin.yaml --plugin moo/cli--moo.wasm \
+  --plugin-notices <notices.md> --plugin-sbom <sbom.spdx.json>
 ```
+
+Each publication carries the guest's third-party notices, packed as a layer of
+the artifact after the `.wasm`, and an SBOM of what the guest links in, attached
+as an `application/spdx+json` referrer. `scripts/publish-plugin.sh build` writes
+both beside the `.wasm` with `scripts/gen-third-party-licenses.sh` of an
+`aggrega-cli` checkout beside this repository (`../aggrega-cli`), from the
+guest's lockfile: `go.sum`, `Cargo.lock` or `package-lock.json`. Every guest
+needs its lockfile committed; a guest without one is refused, naming the file.
+`scripts/publish-plugin.sh publish` refuses a guest missing either file before
+it pushes anything. Publishing needs an `aggrega` whose `push` takes
+`--plugin-notices` and `--plugin-sbom`, which the tooling image of a release
+that carries them does.
 
 When you are starting an entity from the binary rather than editing one by hand,
 `aggrega plugin gen-catalog` generates a `Plugin` entity from a guest's
@@ -256,8 +269,11 @@ The workflow `.github/workflows/publish-plugin-sign.yml` publishes a guest from
 its release tag. Pushing a tag of the form `<guest>/v<MAJOR>.<MINOR>.<PATCH>`
 starts it. It builds that guest from the commit the tag names, with the guest's
 own `build.sh`, checks that the entity's `metadata.version` and the version the
-build stamps both equal the tag's, and publishes the `.wasm` and the entity with
+build stamps both equal the tag's, writes the guest's notices and SBOM, and
+publishes the `.wasm`, the entity, the notices and the SBOM with
 `aggrega push --plugin --sign`, signed keyless with the workflow's own identity.
+The build job checks out the `aggrega-cli` release the tooling image is, beside
+this repository, for the generator.
 A tag with a pre-release suffix starts nothing.
 
 Push release tags one at a time: GitHub starts no workflow for tags when more

@@ -22,10 +22,13 @@ name: Publish and sign a plugin
 #             development kits from its language's package registry at the
 #             version the guest's manifest names, checks that the entity's
 #             metadata.version and the version the build stamped both equal the
-#             tag's, and hands the .wasm and the entity to the next job.
+#             tag's, writes the guest's third-party notices and SBOM from its
+#             lockfile, and hands the .wasm, the entity, the notices and the
+#             SBOM to the next job.
 #   publish   runs inside the tooling image and publishes with aggrega push,
 #             which reads describe() from the .wasm and refuses an entity that
-#             disagrees with it before any byte lands.
+#             disagrees with it before any byte lands, and which publishes the
+#             notices with the .wasm and the SBOM as a referrer.
 #
 # The logic of each step lives in scripts/publish-plugin.sh and
 # .github/scripts/registry-gate.sh, so a run can be repeated by hand exactly;
@@ -193,6 +196,16 @@ jobs:
           path: aggrega-plugins
           fetch-depth: 0
           fetch-tags: true
+
+      - name: Check out the CLI release the tooling image is
+        # Beside aggrega-plugins: its scripts/gen-third-party-licenses.sh writes
+        # each guest's notices and SBOM, and the build looks for it there. The
+        # tooling image's tag is the CLI release's version without the leading v.
+        uses: actions/checkout@v5
+        with:
+          repository: aggrega-ai/aggrega-cli
+          ref: v${{ vars.TOOLING_IMAGE_TAG }}
+          path: aggrega-cli
 
       - name: Install Rust for the Rust guests
         # The Rust guests build to wasm32-unknown-unknown and wasm32-wasip1, on
