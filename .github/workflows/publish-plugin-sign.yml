@@ -119,7 +119,7 @@ jobs:
     steps:
       - name: Check out this repository with its tags
         # The tags are what the resolve step reads.
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           path: aggrega-plugins
           fetch-depth: 0
@@ -191,7 +191,7 @@ jobs:
       - name: Check out this repository with its tags
         # Full history and tags: the build clones this checkout, moves the clone
         # onto each tag, and each guest's build stamps its version from the tags.
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           path: aggrega-plugins
           fetch-depth: 0
@@ -201,7 +201,7 @@ jobs:
         # Beside aggrega-plugins: its scripts/gen-third-party-licenses.sh writes
         # each guest's notices and SBOM, and the build looks for it there. The
         # tooling image's tag is the CLI release's version without the leading v.
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           repository: aggrega-ai/aggrega-cli
           ref: v${{ vars.TOOLING_IMAGE_TAG }}
@@ -211,7 +211,7 @@ jobs:
         # The Rust guests build to wasm32-unknown-unknown and wasm32-wasip1, on
         # the kits' Rust 1.85 floor.
         if: ${{ needs.registry.outputs.rust == 'true' }}
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
         with:
           toolchain: '1.85'
           targets: wasm32-unknown-unknown, wasm32-wasip1
@@ -219,7 +219,7 @@ jobs:
       - name: Install Go for the Go guests
         # The highest Go version a Go guest's go.mod names.
         if: ${{ needs.registry.outputs.go != '' }}
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version: ${{ needs.registry.outputs.go }}
           # Off, as in the CLI's publisher: on a persistent self-hosted runner
@@ -228,7 +228,7 @@ jobs:
 
       - name: Install Node for the TypeScript guest
         if: ${{ needs.registry.outputs.node == 'true' }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '24'
 
@@ -264,7 +264,7 @@ jobs:
             --out "$PLUGIN_RELEASE"
 
       - name: Hand the built guests to the publish job
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: plugin-release
           path: ${{ env.PLUGIN_RELEASE }}
@@ -314,7 +314,7 @@ jobs:
     steps:
       - name: Check out this repository
         # For the release script only; the guests arrive built.
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           path: aggrega-plugins
 
@@ -329,7 +329,7 @@ jobs:
           printf 'PLUGIN_RELEASE=%s\n' "$release" >> "$GITHUB_ENV"
 
       - name: Receive the built guests
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: plugin-release
           path: ${{ env.PLUGIN_RELEASE }}
