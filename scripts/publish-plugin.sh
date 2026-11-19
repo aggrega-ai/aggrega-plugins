@@ -14,7 +14,9 @@
 #
 # Each publication carries the guest's third-party notices and an SBOM of the same
 # third-party dependencies (for a TypeScript guest, the packages its package-lock.json
-# bundles, not the JavaScript engine the build merges in). The build writes both
+# bundles and the JavaScript runtime and engine the build merges in, which the
+# generator identifies by the sha256 of the extism-js on PATH and refuses when it
+# holds no license texts for that binary's release). The build writes both
 # beside the .wasm, with the generator
 # of an aggrega-cli checkout beside this repository, and the publication hands
 # them to aggrega push. Every guest therefore needs its lockfile (go.sum,
