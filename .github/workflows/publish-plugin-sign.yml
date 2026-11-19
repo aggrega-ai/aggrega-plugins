@@ -124,6 +124,7 @@ jobs:
           path: aggrega-plugins
           fetch-depth: 0
           fetch-tags: true
+          persist-credentials: false
 
       - name: Check the stored registry credential
         # One GET /v2/ with the stored credential; anything but 200 fails,
@@ -196,6 +197,7 @@ jobs:
           path: aggrega-plugins
           fetch-depth: 0
           fetch-tags: true
+          persist-credentials: false
 
       - name: Check out the CLI release the tooling image is
         # Beside aggrega-plugins: its scripts/gen-third-party-licenses.sh writes
@@ -206,6 +208,7 @@ jobs:
           repository: aggrega-ai/aggrega-cli
           ref: v${{ vars.TOOLING_IMAGE_TAG }}
           path: aggrega-cli
+          persist-credentials: false
 
       - name: Install Rust for the Rust guests
         # The Rust guests build to wasm32-unknown-unknown and wasm32-wasip1, on
@@ -228,7 +231,7 @@ jobs:
 
       - name: Install Node for the TypeScript guest
         if: ${{ needs.registry.outputs.node == 'true' }}
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0 # zizmor: ignore[cache-poisoning] this release of the action restores a cache only when its cache input names a package manager, and none is named
         with:
           node-version: '24'
 
@@ -296,7 +299,7 @@ jobs:
     # PATH. The registry is authenticated even on pull, so the image is pulled
     # with the registry credentials.
     container:
-      image: ${{ needs.registry.outputs.image }}
+      image: ${{ needs.registry.outputs.image }} # zizmor: ignore[unpinned-images] the tooling image this release publishes, at its exact version, which the registry job waits for before this job starts
       credentials:
         username: ${{ vars.REGISTRY_USERNAME }}
         password: ${{ secrets.REGISTRY_PASSWORD }}
@@ -317,6 +320,7 @@ jobs:
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           path: aggrega-plugins
+          persist-credentials: false
 
       - name: Make this run's own release directory
         # This job runs as root inside the tooling image, and what it writes
