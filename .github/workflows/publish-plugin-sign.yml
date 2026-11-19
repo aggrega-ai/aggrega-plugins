@@ -231,9 +231,12 @@ jobs:
 
       - name: Install Node for the TypeScript guest
         if: ${{ needs.registry.outputs.node == 'true' }}
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0 # zizmor: ignore[cache-poisoning] this release of the action restores a cache only when its cache input names a package manager, and none is named
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: '24'
+          # No package manager cache: this job builds what the release publishes, so it
+          # restores nothing from the Actions cache, which other workflow runs can write.
+          package-manager-cache: false
 
       - name: Install extism-js and binaryen for the TypeScript guest
         # Pinned releases, each checked against its SHA-256 before it is
@@ -299,7 +302,7 @@ jobs:
     # PATH. The registry is authenticated even on pull, so the image is pulled
     # with the registry credentials.
     container:
-      image: ${{ needs.registry.outputs.image }} # zizmor: ignore[unpinned-images] the tooling image this release publishes, at its exact version, which the registry job waits for before this job starts
+      image: ${{ needs.registry.outputs.image }} # zizmor: ignore[unpinned-images] the CLI's tooling image at the tag the TOOLING_IMAGE_TAG variable names, known only at run time; the registry job confirms the image exists before this job starts
       credentials:
         username: ${{ vars.REGISTRY_USERNAME }}
         password: ${{ secrets.REGISTRY_PASSWORD }}
