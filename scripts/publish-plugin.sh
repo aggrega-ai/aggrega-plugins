@@ -266,7 +266,7 @@ generate_notices() {
   local t="$1" guest="$2" gdir="$3" gout="$4" gen
   gen="$(notices_generator)"
   if ! bash "$gen" --guest "$gdir" --out "$gout"; then
-    fail "$t: the third-party notices and SBOM of $guest could not be generated; its output is above. A guest needs its lockfile (go.sum, Cargo.lock or package-lock.json) committed."
+    fail "$t: the third-party notices and SBOM of $guest could not be generated; its output is above."
   fi
   local f
   for f in notices.md sbom.spdx.json; do
@@ -344,6 +344,17 @@ cmd_build() {
     local wasms=("$gout"/*.wasm)
     shopt -u nullglob
     [ "${#wasms[@]}" -eq 1 ] || fail "$t: the build left ${#wasms[@]} .wasm files in $gout, where one was expected"
+    # A build that writes a file the tag does not carry has made something up,
+    # most often a lockfile the guest does not commit (cargo writes Cargo.lock
+    # when it is absent). Notices drawn from it would describe no committed
+    # input, so the build refuses.
+    local changed
+    changed="$(git -C "$clone" status --porcelain --untracked-files=all -- "$guest")"
+    if [ -n "$changed" ]; then
+      fail "$t: building $guest changed its tree, which the tag names clean:
+$changed
+A guest commits its lockfile (go.sum, Cargo.lock or package-lock.json) and the build leaves it as committed."
+    fi
     generate_notices "$t" "$guest" "$clone/$guest" "$gout"
     cp "$entity" "$gout/plugin.yaml"
     printf 'tag=%s\nversion=%s\ncommit=%s\nstamped=%s %s\n' \
