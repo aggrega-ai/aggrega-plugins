@@ -179,8 +179,10 @@ aggrega push moo/plugin.yaml --plugin moo/cli--moo.wasm \
 ```
 
 Each publication carries the guest's third-party notices, packed as a layer of
-the artifact after the `.wasm`, and an SBOM of what the guest links in, attached
-as an `application/spdx+json` referrer. `scripts/publish-plugin.sh build` writes
+the artifact after the `.wasm`, and an SBOM of the same third-party dependencies,
+attached as an `application/spdx+json` referrer. For a TypeScript guest both list
+the packages its `package-lock.json` bundles; the JavaScript engine the build
+merges into the `.wasm` is not listed. `scripts/publish-plugin.sh build` writes
 both beside the `.wasm` with `scripts/gen-third-party-licenses.sh` of an
 `aggrega-cli` checkout beside this repository (`../aggrega-cli`), from the
 guest's lockfile: `go.sum`, `Cargo.lock` or `package-lock.json`. Every guest

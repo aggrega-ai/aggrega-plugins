@@ -12,8 +12,10 @@
 # the same way by hand. Nothing is pushed unless the publish command is given
 # without --dry-run.
 #
-# Each publication carries the guest's third-party notices and an SBOM of what
-# the guest links in. The build writes both beside the .wasm, with the generator
+# Each publication carries the guest's third-party notices and an SBOM of the same
+# third-party dependencies (for a TypeScript guest, the packages its package-lock.json
+# bundles, not the JavaScript engine the build merges in). The build writes both
+# beside the .wasm, with the generator
 # of an aggrega-cli checkout beside this repository, and the publication hands
 # them to aggrega push. Every guest therefore needs its lockfile (go.sum,
 # Cargo.lock or package-lock.json) committed; a guest without it is refused.
@@ -344,16 +346,16 @@ cmd_build() {
     local wasms=("$gout"/*.wasm)
     shopt -u nullglob
     [ "${#wasms[@]}" -eq 1 ] || fail "$t: the build left ${#wasms[@]} .wasm files in $gout, where one was expected"
-    # A build that writes a file the tag does not carry has made something up,
-    # most often a lockfile the guest does not commit (cargo writes Cargo.lock
-    # when it is absent). Notices drawn from it would describe no committed
-    # input, so the build refuses.
+    # A build must leave the guest's tagged tree as the tag names it: a file it
+    # writes or changes (most often a lockfile the guest does not commit, which
+    # cargo writes when it is absent) is not part of the tagged commit, and notices
+    # drawn from it would describe no committed input, so the build refuses.
     local changed
     changed="$(git -C "$clone" status --porcelain --untracked-files=all -- "$guest")"
     if [ -n "$changed" ]; then
       fail "$t: building $guest changed its tree, which the tag names clean:
 $changed
-A guest commits its lockfile (go.sum, Cargo.lock or package-lock.json) and the build leaves it as committed."
+A build leaves the guest's tree as the tag names it; a guest commits its lockfile (go.sum, Cargo.lock or package-lock.json) so the build does not write one."
     fi
     generate_notices "$t" "$guest" "$clone/$guest" "$gout"
     cp "$entity" "$gout/plugin.yaml"
