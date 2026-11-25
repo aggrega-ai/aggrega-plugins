@@ -1,0 +1,88 @@
+name: Checks
+
+# The checks every push to main or to a release branch, and every pull request
+# into main, runs on a GitHub-hosted runner. A newer push to the same branch or
+# pull request cancels the run it supersedes.
+#
+#   guests  builds every guest of this repository with its own build.sh, at the
+#           checked-out commit, with the toolchains the release workflow builds
+#           them with (Rust on the kits' 1.85 floor with both WebAssembly
+#           targets, the Go a Go guest's go.mod names, Node 24 with the pinned
+#           extism-js and binaryen), and runs the Rust guests' unit tests on
+#           the host. Each guest takes the plugin development kits from its
+#           language's package registry at the version its own manifest names.
+#           It publishes nothing and writes nothing outside the runner.
+on:
+  push:
+    branches: [main, 'release/**']
+  pull_request:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  guests:
+    name: Build every guest and run its tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Check out this repository
+        # build.sh stamps the version the guest's newest tag gives, so the
+        # checkout carries the history and the tags.
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install Rust for the Rust guests
+        uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
+        with:
+          toolchain: '1.85'
+          targets: wasm32-unknown-unknown, wasm32-wasip1
+
+      - name: Install Go for the Go guests
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: moo/go.mod
+          cache: false
+
+      - name: Install Node for the TypeScript guest
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+
+      - name: Install extism-js and binaryen for the TypeScript guest
+        run: |
+          scripts/publish-plugin.sh install-tools --dir "$RUNNER_TEMP/tools/bin"
+          echo "$RUNNER_TEMP/tools/bin" >> "$GITHUB_PATH"
+
+      - name: Build every guest
+        env:
+          AGGREGA_PLUGIN_WASM_OUT: ${{ runner.temp }}/guests
+        run: |
+          set -euo pipefail
+          status=0
+          for build in */build.sh; do
+            guest="${build%/build.sh}"
+            echo "::group::$guest"
+            if ! bash "$build"; then
+              echo "::error::$guest did not build"
+              status=1
+            fi
+            echo "::endgroup::"
+          done
+          exit "$status"
+
+      - name: Run the Rust guests' unit tests
+        run: |
+          set -euo pipefail
+          for manifest in */Cargo.toml; do
+            (cd "$(dirname "$manifest")" && cargo test --locked)
+          done
